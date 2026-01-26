@@ -1,4 +1,4 @@
-import { useAudioPlayer } from '@/hooks/use-audio-player'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import {

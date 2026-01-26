@@ -17,7 +17,7 @@ import Player from './pages/Player'
 import Settings from './pages/Settings'
 import CalendarPage from './pages/CalendarPage'
 import LiveMode from './pages/LiveMode'
-import { AudioPlayerProvider } from '@/hooks/use-audio-player'
+import { AudioPlayerProvider } from '@/hooks/use-audio-player-context'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
 // AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)

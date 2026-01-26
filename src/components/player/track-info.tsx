@@ -1,63 +1,64 @@
-import { Track } from '@/hooks/use-audio-player'
-import { Card } from '@/components/ui/card'
+import { Track } from '@/hooks/use-audio-player-context'
+import { Music, Disc } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface TrackInfoProps {
   track: Track | undefined
-  isLoading?: boolean
+  isLoading: boolean
 }
 
 export function TrackInfo({ track, isLoading }: TrackInfoProps) {
-  if (isLoading && !track) {
+  if (!track) {
     return (
-      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
-        <Skeleton className="w-full aspect-square rounded-xl" />
-        <div className="space-y-2 w-full">
-          <Skeleton className="h-6 w-3/4 mx-auto" />
-          <Skeleton className="h-4 w-1/2 mx-auto" />
-        </div>
+      <div className="flex flex-col items-center justify-center space-y-4 py-8 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border">
+        <Disc className="w-16 h-16 opacity-50 animate-spin-slow" />
+        <p>Nenhuma música selecionada</p>
       </div>
     )
   }
 
-  if (!track) return null
-
   return (
-    <div className="flex flex-col items-center space-y-6">
-      <Card className="w-full max-w-sm aspect-square overflow-hidden rounded-xl border-none shadow-2xl relative group">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+    <div className="flex flex-col items-center text-center space-y-6">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group">
         {track.cover ? (
           <img
             src={track.cover}
-            alt={track.title || 'Capa do álbum'}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            alt={track.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full bg-secondary flex items-center justify-center">
-            <span className="text-6xl">🎵</span>
+          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-950 flex items-center justify-center">
+            <Music className="w-24 h-24 text-white/20" />
           </div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 p-6 z-20 text-left">
-          <h2 className="text-2xl font-bold text-white drop-shadow-md line-clamp-1">
-            {track.title || 'Sem Título'}
-          </h2>
-          <p className="text-lg text-gray-200 drop-shadow-sm font-medium">
-            {track.composer || 'Desconhecido'}
-          </p>
-          <div className="flex gap-2 mt-2">
-            {track.ritual && (
-              <span className="text-xs bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-white border border-white/10">
-                {track.ritual}
-              </span>
-            )}
-            {track.degree && (
-              <span className="text-xs bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-white border border-white/10">
-                {track.degree}
-              </span>
-            )}
+
+        {isLoading && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+            <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+      </div>
+
+      <div className="space-y-2 max-w-md w-full">
+        <h2 className="text-2xl font-bold tracking-tight leading-none truncate">
+          {track.title}
+        </h2>
+        <p className="text-lg text-muted-foreground font-medium truncate">
+          {track.composer}
+        </p>
+        <div className="flex justify-center gap-2 pt-2">
+          {track.ritual && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {track.ritual}
+            </span>
+          )}
+          {track.degree && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
+              {track.degree}
+            </span>
+          )}
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useAudioPlayer } from '@/hooks/use-audio-player'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { TrackInfo } from '@/components/player/track-info'
 import { PlayerControls } from '@/components/player/player-controls'
 import { QueueList } from '@/components/player/queue-list'
