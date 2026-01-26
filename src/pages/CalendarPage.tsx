@@ -27,6 +27,7 @@ import {
   Calendar as CalendarIcon,
   Clock,
   Music,
+  Bell,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -34,11 +35,13 @@ import { upcomingEvents, playlists } from '@/lib/mock-data'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
+import { Switch } from '@/components/ui/switch'
 
 export default function CalendarPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [events, setEvents] = useState(upcomingEvents)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const { toast } = useToast()
 
   // Form state
@@ -85,6 +88,16 @@ export default function CalendarPage() {
       description: `${eventToAdd.title} adicionada para ${formattedDate}.`,
     })
     setNewEvent({ title: '', time: '20:00', type: 'Ordinária', playlistId: '' })
+  }
+
+  const toggleNotifications = (enabled: boolean) => {
+    setNotificationsEnabled(enabled)
+    toast({
+      title: enabled ? 'Notificações Ativadas' : 'Notificações Desativadas',
+      description: enabled
+        ? 'Você receberá alertas 30min antes das sessões.'
+        : 'Você não receberá mais alertas de rituais.',
+    })
   }
 
   return (
@@ -215,6 +228,22 @@ export default function CalendarPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
+
+        <div className="bg-secondary/10 p-4 rounded-lg flex items-center justify-between border border-border">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Lembretes de Sessão</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Alertar 30min antes
+            </span>
+            <Switch
+              checked={notificationsEnabled}
+              onCheckedChange={toggleNotifications}
+            />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-4">

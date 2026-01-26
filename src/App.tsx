@@ -16,6 +16,8 @@ import PlaylistDetails from './pages/PlaylistDetails'
 import Player from './pages/Player'
 import Settings from './pages/Settings'
 import CalendarPage from './pages/CalendarPage'
+import LiveMode from './pages/LiveMode'
+import { AudioPlayerProvider } from '@/hooks/use-audio-player'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
 // AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)
@@ -27,23 +29,27 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/library/:id" element={<MusicDetails />} />
-          <Route path="/playlists" element={<Dashboard />} />
-          <Route path="/playlists/:id" element={<PlaylistDetails />} />
-          <Route path="/player" element={<Player />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AudioPlayerProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/library/:id" element={<MusicDetails />} />
+            <Route path="/playlists" element={<Dashboard />} />
+            <Route path="/playlists/:id" element={<PlaylistDetails />} />
+            <Route path="/player" element={<Player />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+          </Route>
+          {/* Live Mode outside Main Layout for full screen experience */}
+          <Route path="/live-mode" element={<LiveMode />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AudioPlayerProvider>
     </TooltipProvider>
   </BrowserRouter>
 )

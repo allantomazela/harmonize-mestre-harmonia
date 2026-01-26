@@ -36,6 +36,7 @@ import {
   Globe,
   Copy,
   Wifi,
+  ListMusic,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -349,15 +350,55 @@ export default function Library() {
           </div>
 
           <div className="rounded-md border border-border bg-card animate-fade-in">
-            <div className="p-4 border-b border-border bg-secondary/10">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Globe className="w-4 h-4" /> Repertório Compartilhado
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Explore e importe músicas compartilhadas por outras Lojas da
-                rede Harmonize.
-              </p>
+            <div className="p-4 border-b border-border bg-secondary/10 flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> Repertório Compartilhado
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Explore músicas e playlists compartilhadas por outras Lojas.
+                </p>
+              </div>
+              <div className="hidden md:block">
+                <Badge variant="outline" className="gap-1">
+                  <ListMusic className="w-3 h-3" />5 Playlists Smart
+                </Badge>
+              </div>
             </div>
+
+            {/* Simulated Shared Playlist for Demo */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 hover:bg-primary/10 transition-colors">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium">
+                    Sessão Magna de Iniciação (Smart)
+                  </h4>
+                  <Badge variant="default" className="text-[10px]">
+                    Playlist
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Loja União #123 • 12 faixas
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="secondary" className="text-[10px]">
+                    Solenidade
+                  </Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    Smart Engine
+                  </Badge>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="hover:border-primary hover:text-primary"
+                onClick={() => handleClone('Sessão Magna de Iniciação')}
+              >
+                <Copy className="w-4 h-4 mr-2" /> Importar Playlist
+              </Button>
+            </div>
+
             {filteredGlobalLibrary.length > 0 ? (
               filteredGlobalLibrary.map((track) => (
                 <div

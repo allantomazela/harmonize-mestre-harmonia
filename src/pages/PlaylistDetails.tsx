@@ -17,6 +17,8 @@ import {
   Plus,
   Clock,
   Wand2,
+  Share2,
+  Globe,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
@@ -105,6 +107,13 @@ export default function PlaylistDetails() {
     })
   }
 
+  const handleShare = () => {
+    toast({
+      title: 'Playlist Compartilhada',
+      description: `"${playlist.title}" agora está disponível na Biblioteca Global para outras Lojas.`,
+    })
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <Button
@@ -132,7 +141,7 @@ export default function PlaylistDetails() {
               <Clock className="w-4 h-4" /> {playlist.duration} •{' '}
               {tracks.length} faixas
             </p>
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 flex-wrap">
               <Button className="bg-primary text-primary-foreground">
                 <Play className="w-4 h-4 mr-2" /> Tocar
               </Button>
@@ -227,6 +236,11 @@ export default function PlaylistDetails() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              <Button variant="outline" onClick={handleShare}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Compartilhar Global
+              </Button>
             </div>
           </div>
         </div>
