@@ -9,17 +9,20 @@ import React, {
 } from 'react'
 import { musicLibrary } from '@/lib/mock-data'
 import { toast } from '@/hooks/use-toast'
+import { getAllTracks, LocalTrack } from '@/lib/storage'
 
 export interface Track {
   id: string
   title: string
   composer: string
   url?: string
+  file?: Blob
   cover?: string
   duration: string
   degree: string
   ritual?: string
   occasion?: string
+  isLocal?: boolean
 }
 
 type FadeCurve = 'linear' | 'exponential' | 'smooth'
@@ -46,6 +49,8 @@ interface AudioPlayerContextType {
   setFadeCurve: (curve: FadeCurve) => void
   reorderQueue: (from: number, to: number) => void
   skipToIndex: (index: number) => void
+  addToQueue: (tracks: Track[]) => void
+  refreshLibrary: () => Promise<void>
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -54,27 +59,54 @@ const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [queue, setQueue] = useState<Track[]>(musicLibrary)
+  const [queue, setQueue] = useState<Track[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.8)
-  const [fadeInDuration, setFadeInDuration] = useState(2)
-  const [fadeOutDuration, setFadeOutDuration] = useState(2)
-  const [fadeCurve, setFadeCurve] = useState<FadeCurve>('linear')
+  const [fadeInDuration, setFadeInDuration] = useState(1.5) // Optimized default
+  const [fadeOutDuration, setFadeOutDuration] = useState(1.5)
+  const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential') // Better default
   const [isLoading, setIsLoading] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
+
+  // Initialize Library
+  const refreshLibrary = useCallback(async () => {
+    try {
+      const localTracks = await getAllTracks()
+      const formattedLocalTracks: Track[] = localTracks.map((lt) => ({
+        id: lt.id,
+        title: lt.title,
+        composer: lt.composer,
+        file: lt.file,
+        duration: lt.duration,
+        degree: lt.degree || 'Geral',
+        ritual: lt.ritual || 'Geral',
+        isLocal: true,
+      }))
+      // Merge mock data (as "system" tracks) and local data
+      setQueue([...musicLibrary, ...formattedLocalTracks])
+    } catch (error) {
+      console.error('Failed to load local tracks', error)
+      setQueue(musicLibrary)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshLibrary()
+  }, [refreshLibrary])
 
   const currentTrack = queue[currentIndex]
 
-  // Initialize Audio
+  // Initialize Audio Element
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
-      audioRef.current.preload = 'metadata'
+      audioRef.current.preload = 'auto' // Better for local files
     }
     const audio = audioRef.current
 
@@ -99,12 +131,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const handleError = (e: Event) => {
       console.error('Audio Playback Error:', e)
       setIsLoading(false)
-      setIsPlaying(false)
-      toast({
-        title: 'Erro na reprodução',
-        description: 'Não foi possível reproduzir este áudio.',
-        variant: 'destructive',
-      })
+      // Only toast on real errors, not aborts
+      if (audio.error && audio.error.code !== 20) {
+        toast({
+          title: 'Erro na reprodução',
+          description: 'Não foi possível reproduzir o áudio.',
+          variant: 'destructive',
+        })
+      }
     }
 
     audio.addEventListener('timeupdate', updateTime)
@@ -124,8 +158,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('canplay', handleCanPlay)
       audio.removeEventListener('error', handleError)
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     }
-  }, []) // Empty dependency array means this runs once on mount
+  }, []) // playNext dependency removed to avoid circular dep, handled in function
 
   // Sync Volume
   useEffect(() => {
@@ -176,7 +211,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       curve: FadeCurve,
       onComplete?: () => void,
     ) => {
-      if (!audioRef.current) return
+      if (!audioRef.current) {
+        onComplete?.()
+        return
+      }
 
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
 
@@ -190,7 +228,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const steps = 30 // Higher update rate for smoother curves
+      const steps = 60 // Higher FPS for smoothness
       const durationMs = duration * 1000
       const stepTime = durationMs / steps
 
@@ -198,14 +236,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       fadeIntervalRef.current = setInterval(() => {
         currentStep++
-        const progress = currentStep / steps // 0 to 1
-
-        // Apply curve to the interpolation factor
+        const progress = currentStep / steps
         const curvedProgress = calculateCurve(progress, curve)
-
         const newVol = startVolume + diff * curvedProgress
 
-        // Clamp volume
         if (newVol < 0) audio.volume = 0
         else if (newVol > 1) audio.volume = 1
         else audio.volume = newVol
@@ -213,7 +247,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         if (currentStep >= steps) {
           if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
           fadeIntervalRef.current = null
-          // Ensure final volume matches target exactly (respecting master volume if needed)
           audio.volume = targetVolume
           onComplete?.()
         }
@@ -224,11 +257,33 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const loadAndPlay = useCallback(
     (track: Track) => {
-      if (!audioRef.current || !track.url) return
+      if (!audioRef.current) return
+
+      // Revoke previous blob URL if exists
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
 
       const startNewTrack = () => {
         if (!audioRef.current) return
-        audioRef.current.src = track.url!
+
+        let src = track.url
+        if (track.file) {
+          src = URL.createObjectURL(track.file)
+          objectUrlRef.current = src
+        }
+
+        if (!src) {
+          toast({
+            title: 'Arquivo não encontrado',
+            description: 'O arquivo de áudio não está acessível.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        audioRef.current.src = src
         audioRef.current.load()
         audioRef.current.volume = 0
         safePlay().then(() => {
@@ -261,13 +316,19 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         safePause()
       })
     } else {
-      audioRef.current.volume = 0
-      safePlay().then(() => {
-        performFade(volume, fadeInDuration, fadeCurve)
-      })
+      if (!audioRef.current.src && currentTrack) {
+        loadAndPlay(currentTrack)
+      } else {
+        audioRef.current.volume = 0
+        safePlay().then(() => {
+          performFade(volume, fadeInDuration, fadeCurve)
+        })
+      }
     }
   }, [
     isPlaying,
+    currentTrack,
+    loadAndPlay,
     performFade,
     volume,
     fadeInDuration,
@@ -278,27 +339,34 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   ])
 
   const playNext = useCallback(() => {
-    setCurrentIndex((prev) => {
-      if (prev < queue.length - 1) {
-        const next = prev + 1
-        loadAndPlay(queue[next])
-        return next
-      }
-      setIsPlaying(false)
-      return prev
+    setQueue((currentQueue) => {
+      // Use callback to get latest queue
+      setCurrentIndex((prevIndex) => {
+        if (prevIndex < currentQueue.length - 1) {
+          const next = prevIndex + 1
+          loadAndPlay(currentQueue[next])
+          return next
+        }
+        setIsPlaying(false)
+        return prevIndex
+      })
+      return currentQueue
     })
-  }, [queue, loadAndPlay])
+  }, [loadAndPlay])
 
   const playPrev = useCallback(() => {
-    setCurrentIndex((prev) => {
-      if (prev > 0) {
-        const next = prev - 1
-        loadAndPlay(queue[next])
-        return next
-      }
-      return prev
+    setQueue((currentQueue) => {
+      setCurrentIndex((prevIndex) => {
+        if (prevIndex > 0) {
+          const next = prevIndex - 1
+          loadAndPlay(currentQueue[next])
+          return next
+        }
+        return prevIndex
+      })
+      return currentQueue
     })
-  }, [queue, loadAndPlay])
+  }, [loadAndPlay])
 
   const seek = useCallback((time: number) => {
     if (audioRef.current && Number.isFinite(time)) {
@@ -338,6 +406,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     [queue, loadAndPlay],
   )
 
+  const addToQueue = useCallback((tracks: Track[]) => {
+    setQueue((prev) => [...prev, ...tracks])
+    toast({
+      title: 'Adicionado à Fila',
+      description: `${tracks.length} faixas adicionadas.`,
+    })
+  }, [])
+
   return (
     <AudioPlayerContext.Provider
       value={{
@@ -362,6 +438,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setFadeCurve,
         reorderQueue,
         skipToIndex,
+        addToQueue,
+        refreshLibrary,
       }}
     >
       {children}

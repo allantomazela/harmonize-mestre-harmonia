@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   ChartContainer,
   ChartTooltip,
@@ -21,42 +20,28 @@ import { ptBR } from 'date-fns/locale'
 import {
   Play,
   Plus,
-  Upload,
-  Wifi,
+  HardDrive,
   Music,
   Calendar as CalendarIcon,
-  CheckCircle2,
-  DownloadCloud,
+  Database,
 } from 'lucide-react'
 import { upcomingEvents, chartData, playlists } from '@/lib/mock-data'
-import { Switch } from '@/components/ui/switch'
-import { useState } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Progress } from '@/components/ui/progress'
 
 export default function Dashboard() {
-  const [offlineMode, setOfflineMode] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-  const { toast } = useToast()
   const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+  const { queue } = useAudioPlayer()
+
+  const localCount = queue.filter(t => t.isLocal).length
+  const totalDuration = queue.length * 4 // Mock avg duration
+  const storageUsagePercent = Math.min(100, (localCount / 100) * 100) // Mock usage
 
   const chartConfig = {
     opening: { label: 'Abertura', color: 'hsl(var(--chart-1))' },
     elevation: { label: 'Elevação', color: 'hsl(var(--chart-2))' },
     closing: { label: 'Encerramento', color: 'hsl(var(--chart-3))' },
     other: { label: 'Outros', color: 'hsl(var(--chart-4))' },
-  }
-
-  const handleVerifySync = () => {
-    setIsVerifying(true)
-    setTimeout(() => {
-      setIsVerifying(false)
-      toast({
-        title: 'Verificação Concluída',
-        description:
-          'Todos os arquivos necessários para a próxima sessão estão disponíveis.',
-      })
-    }, 2000)
   }
 
   return (
@@ -71,7 +56,7 @@ export default function Dashboard() {
         <div className="flex gap-3">
           <Link to="/library">
             <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" /> Adicionar Música
+              <Plus className="w-4 h-4 mr-2" /> Importar Arquivos
             </Button>
           </Link>
         </div>
@@ -108,48 +93,42 @@ export default function Dashboard() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
               </PieChart>
-            </ChartContainer>
+            </CardContainer>
           </CardContent>
         </Card>
 
-        {/* Sync Status - Enhanced */}
+        {/* Local Storage Stats */}
         <Card className="col-span-1 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2">
-              <Wifi className="w-5 h-5 text-primary" /> Sincronização
+              <Database className="w-5 h-5 text-primary" /> Armazenamento Local
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Modo Offline</span>
-              <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
-            </div>
-
+             <div className="text-2xl font-bold">
+                 {localCount} <span className="text-sm font-normal text-muted-foreground">arquivos importados</span>
+             </div>
+            
             <div className="space-y-2 pt-2 border-t border-border">
               <div className="flex justify-between text-xs font-medium">
-                <span>Armazenamento</span>
-                <span>1.2GB / 5GB</span>
+                <span>Capacidade do Navegador</span>
+                <span>{storageUsagePercent.toFixed(1)}% Usado</span>
               </div>
-              <Progress value={24} className="h-2" />
+              <Progress value={storageUsagePercent} className="h-2" />
               <p className="text-xs text-muted-foreground pt-1">
-                Downloads Prioritários: 2
+                Seus arquivos estão salvos com segurança neste dispositivo.
               </p>
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs"
-              onClick={handleVerifySync}
-              disabled={isVerifying}
-            >
-              {isVerifying ? (
-                <CheckCircle2 className="w-3 h-3 mr-2 animate-spin" />
-              ) : (
-                <DownloadCloud className="w-3 h-3 mr-2" />
-              )}
-              {isVerifying ? 'Verificando...' : 'Verificar para Sessão'}
-            </Button>
+            
+             <Link to="/library">
+                <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs mt-2"
+                >
+                <HardDrive className="w-3 h-3 mr-2" /> Gerenciar Arquivos
+                </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -175,12 +154,14 @@ export default function Dashboard() {
                 <Play className="w-4 h-4 mr-2" /> Abrir Player
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              className="w-full justify-start hover:border-primary"
-            >
-              <Upload className="w-4 h-4 mr-2" /> Importar Arquivo
-            </Button>
+            <Link to="/calendar">
+                <Button
+                variant="outline"
+                className="w-full justify-start hover:border-primary"
+                >
+                <CalendarIcon className="w-4 h-4 mr-2" /> Agenda
+                </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -227,67 +208,6 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
-
-      {/* Upcoming Events */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-primary" /> Próximas Sessões
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {upcomingEvents.map((event) => {
-              const linkedPlaylist = playlists.find(
-                (p) => p.id === event.playlistId,
-              )
-              return (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50 hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-primary/10 text-primary p-2 rounded-md font-bold text-center w-14">
-                      <span className="text-xs block uppercase">
-                        {event.date.split(' ')[1]}
-                      </span>
-                      <span className="text-lg block">
-                        {event.date.split(' ')[0]}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{event.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {event.date.split(',')[1]}
-                      </p>
-                      {linkedPlaylist && (
-                        <div className="flex items-center gap-1 text-xs text-primary mt-1">
-                          <Music className="w-3 h-3" />
-                          <span className="truncate max-w-[150px]">
-                            {linkedPlaylist.title}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {event.type}
-                    </Badge>
-                    {linkedPlaylist && (
-                      <Link to={`/playlists/${linkedPlaylist.id}`}>
-                        <Button size="sm" variant="ghost" className="h-6 px-2">
-                          <Play className="w-3 h-3 mr-1" /> Tocar
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

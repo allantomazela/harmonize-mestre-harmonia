@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Bell, Wifi, WifiOff, ChevronRight } from 'lucide-react'
+import { Bell, ChevronRight, HardDrive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -11,31 +10,18 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 export function TopHeader() {
-  const [isOnline, setIsOnline] = useState(true)
   const location = useLocation()
-
-  useEffect(() => {
-    // Simple mock online/offline detection
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
 
   const getBreadcrumbs = () => {
     const path = location.pathname
     const parts = path.split('/').filter(Boolean)
 
-    // Manual mapping for demo
     const map: Record<string, string> = {
       dashboard: 'Painel',
-      library: 'Acervo Musical',
+      library: 'Acervo Local',
       playlists: 'Playlists',
       settings: 'Configurações',
+      player: 'Player',
     }
 
     return parts.map((part, index) => {
@@ -74,25 +60,14 @@ export function TopHeader() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/20 cursor-help">
-                {isOnline ? (
-                  <>
-                    <Wifi className="w-4 h-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-500 hidden sm:inline">
-                      Sincronizado
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-4 h-4 text-yellow-500 animate-pulse" />
-                    <span className="text-xs font-medium text-yellow-500 hidden sm:inline">
-                      Modo Offline
-                    </span>
-                  </>
-                )}
+                <HardDrive className="w-4 h-4 text-green-500" />
+                <span className="text-xs font-medium text-green-500 hidden sm:inline">
+                  Modo Local Ativo
+                </span>
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isOnline ? 'Conectado à nuvem' : 'Operando localmente'}</p>
+              <p>Operando em modo offline com arquivos locais</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

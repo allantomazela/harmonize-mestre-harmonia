@@ -21,15 +21,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Progress } from '@/components/ui/progress'
-import { lodgeMembers, musicLibrary } from '@/lib/mock-data'
+import { lodgeMembers } from '@/lib/mock-data'
 import { useToast } from '@/hooks/use-toast'
-import { Mail, UserPlus, Wifi, Download, Trash2, Database } from 'lucide-react'
+import { Mail, UserPlus, Trash2, Database, HardDrive } from 'lucide-react'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
+import { clearAllTracks } from '@/lib/storage'
 
 export default function Settings() {
   const { toast } = useToast()
+  const { queue, refreshLibrary } = useAudioPlayer()
   const [inviteEmail, setInviteEmail] = useState('')
-  // Mock state for offline management
-  const [offlineItems, setOfflineItems] = useState(musicLibrary)
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,39 +41,32 @@ export default function Settings() {
     setInviteEmail('')
   }
 
-  const toggleOfflinePriority = (id: string) => {
-    setOfflineItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, offlinePriority: !item.offlinePriority }
-          : item,
-      ),
-    )
-    toast({
-      title: 'Prioridade Atualizada',
-      description: 'As configurações de cache foram salvas.',
-    })
+  const handleClearLibrary = async () => {
+    if (
+      confirm(
+        'Tem certeza que deseja apagar todos os arquivos locais importados?',
+      )
+    ) {
+      await clearAllTracks()
+      refreshLibrary()
+      toast({
+        title: 'Acervo Limpo',
+        description: 'Todos os arquivos locais foram removidos.',
+      })
+    }
   }
 
-  const clearCache = () => {
-    toast({
-      title: 'Cache Limpo',
-      description: 'Arquivos não prioritários foram removidos do dispositivo.',
-    })
-  }
-
-  const downloadedCount = offlineItems.filter((i) => i.isDownloaded).length
-  const priorityCount = offlineItems.filter((i) => i.offlinePriority).length
+  const localFileCount = queue.filter((t) => t.isLocal).length
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-primary">Configurações</h1>
 
-      <Tabs defaultValue="audio" className="w-full">
+      <Tabs defaultValue="local" className="w-full">
         <TabsList>
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="lodge">Loja & Membros</TabsTrigger>
-          <TabsTrigger value="audio">Áudio & Offline</TabsTrigger>
+          <TabsTrigger value="local">Armazenamento Local</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lodge" className="space-y-6 mt-6">
@@ -80,7 +74,8 @@ export default function Settings() {
             <CardHeader>
               <CardTitle>Convidar Membros</CardTitle>
               <CardDescription>
-                Envie convites para Oficiais da Loja acessarem o Harmonize.
+                Envie convites para Oficiais da Loja acessarem o Harmonize
+                Localmente.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -123,9 +118,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Membros Ativos</CardTitle>
-              <CardDescription>
-                Gerencie quem tem acesso ao acervo da Loja.
-              </CardDescription>
+              <CardDescription>Gerencie quem tem acesso.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -156,13 +149,6 @@ export default function Settings() {
                       >
                         {member.role}
                       </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                      >
-                        Remover
-                      </Button>
                     </div>
                   </div>
                 ))}
@@ -171,106 +157,54 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="audio" className="space-y-6 mt-6">
+        <TabsContent value="local" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" /> Armazenamento Local
+                <Database className="w-5 h-5" /> Armazenamento do Dispositivo
               </CardTitle>
               <CardDescription>
-                Gerencie o uso de espaço e prioridade de download para uso
-                offline.
+                Gerencie os arquivos de áudio importados neste navegador.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-medium">
-                  <span>Uso do Armazenamento</span>
-                  <span>1.2 GB / 5 GB</span>
+                  <span>Arquivos Locais Importados</span>
+                  <span>{localFileCount} faixas</span>
                 </div>
-                <Progress value={24} className="h-3" />
+                <Progress
+                  value={Math.min((localFileCount / 100) * 100, 100)}
+                  className="h-3"
+                />
                 <p className="text-xs text-muted-foreground">
-                  {downloadedCount} faixas baixadas • {priorityCount} marcadas
-                  como prioritárias
+                  Estes arquivos estão salvos no banco de dados local do seu
+                  navegador (IndexedDB).
                 </p>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg border border-border">
                 <div className="space-y-0.5">
-                  <h4 className="font-medium text-sm">Limpeza Inteligente</h4>
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-4 h-4 text-primary" />
+                    <h4 className="font-medium text-sm">Persistência Local</h4>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Remove automaticamente arquivos não utilizados há 30 dias,
-                    exceto prioritários.
+                    Seus arquivos permanecerão disponíveis mesmo após fechar o
+                    navegador.
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch defaultChecked disabled />
               </div>
 
               <div className="flex justify-end">
                 <Button
                   variant="outline"
                   className="text-destructive hover:text-destructive hover:border-destructive"
-                  onClick={clearCache}
+                  onClick={handleClearLibrary}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" /> Limpar Cache
+                  <Trash2 className="w-4 h-4 mr-2" /> Apagar Todo o Acervo Local
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="w-5 h-5" /> Prioridade Offline
-              </CardTitle>
-              <CardDescription>
-                Marque faixas ou playlists como críticas para garantir que nunca
-                sejam removidas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {offlineItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 border-b border-border last:border-0 hover:bg-secondary/5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'w-2 h-2 rounded-full',
-                          item.isDownloaded ? 'bg-green-500' : 'bg-secondary',
-                        )}
-                      />
-                      <div>
-                        <p className="font-medium text-sm">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.ritual} • {item.degree}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {item.isDownloaded && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Download className="w-3 h-3 mr-1" /> Baixado
-                        </Badge>
-                      )}
-                      <div className="flex items-center space-x-2">
-                        <Label
-                          htmlFor={`priority-${item.id}`}
-                          className="text-xs font-normal text-muted-foreground"
-                        >
-                          Prioritário
-                        </Label>
-                        <Switch
-                          id={`priority-${item.id}`}
-                          checked={item.offlinePriority}
-                          onCheckedChange={() => toggleOfflinePriority(item.id)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>

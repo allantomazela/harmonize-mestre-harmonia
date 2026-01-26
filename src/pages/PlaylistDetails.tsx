@@ -17,8 +17,6 @@ import {
   Plus,
   Clock,
   Wand2,
-  Share2,
-  Globe,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
@@ -46,7 +44,7 @@ export default function PlaylistDetails() {
   const { toast } = useToast()
 
   const playlist = playlists.find((p) => p.id === id)
-  // Mock playlist tracks
+  // Mock playlist tracks - in real app would query DB
   const initialTracks =
     playlist?.items
       ?.map((itemId) => musicLibrary.find((m) => m.id === itemId))
@@ -103,14 +101,7 @@ export default function PlaylistDetails() {
     setTracks(filteredTracks)
     toast({
       title: 'Playlist Gerada',
-      description: `Encontramos ${filteredTracks.length} faixas compatíveis.`,
-    })
-  }
-
-  const handleShare = () => {
-    toast({
-      title: 'Playlist Compartilhada',
-      description: `"${playlist.title}" agora está disponível na Biblioteca Global para outras Lojas.`,
+      description: `Encontramos ${filteredTracks.length} faixas compatíveis no seu acervo local.`,
     })
   }
 
@@ -163,7 +154,7 @@ export default function PlaylistDetails() {
                     </DialogTitle>
                     <DialogDescription>
                       O sistema selecionará automaticamente as melhores músicas
-                      baseadas nos parâmetros rituais definidos abaixo.
+                      locais baseadas nos parâmetros definidos.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -236,11 +227,6 @@ export default function PlaylistDetails() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-
-              <Button variant="outline" onClick={handleShare}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Compartilhar Global
-              </Button>
             </div>
           </div>
         </div>

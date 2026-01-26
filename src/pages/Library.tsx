@@ -1,43 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { musicLibrary, globalLibrary } from '@/lib/mock-data'
-import {
-  Search,
-  Filter,
-  LayoutGrid,
-  List,
-  MoreVertical,
-  Download,
-  Trash,
-  Heart,
-  Play,
-  Globe,
-  Copy,
-  Wifi,
-  ListMusic,
-} from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,17 +14,33 @@ import {
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  MoreVertical,
+  Trash,
+  Play,
+  LayoutGrid,
+  List,
+  Music,
+  FolderInput,
+  HardDrive,
+  FileAudio,
+} from 'lucide-react'
+import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
+import { saveTrack, deleteTrack } from '@/lib/storage'
 
 export default function Library() {
+  const { queue, refreshLibrary, skipToIndex, addToQueue } = useAudioPlayer()
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [globalSearch, setGlobalSearch] = useState('')
+  const [search, setSearch] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  // Filter queue for local library view
+  const libraryTracks = queue.filter(
+    (track) =>
+      track.title.toLowerCase().includes(search.toLowerCase()) ||
+      track.composer.toLowerCase().includes(search.toLowerCase()),
+  )
 
   const toggleSelection = (id: string) => {
     setSelectedItems((prev) =>
@@ -65,74 +48,125 @@ export default function Library() {
     )
   }
 
-  const handleBulkAction = (action: string) => {
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    let importedCount = 0
+    const failedFiles = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        const id = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        // Basic metadata extraction from filename
+        const fileName = file.name.replace(/\.[^/.]+$/, '')
+        const parts = fileName.split('-')
+        const title = parts.length > 1 ? parts[1].trim() : fileName
+        const composer =
+          parts.length > 1 ? parts[0].trim() : 'Artista Desconhecido'
+
+        await saveTrack({
+          id,
+          title,
+          composer,
+          file,
+          duration: '0:00', // Needs audio element to parse duration properly, skipped for speed
+          addedAt: Date.now(),
+          degree: 'Geral',
+          ritual: 'Livre',
+        })
+        importedCount++
+      } catch (e) {
+        console.error('Error saving file', file.name, e)
+        failedFiles.push(file.name)
+      }
+    }
+
+    if (importedCount > 0) {
+      toast({
+        title: 'Importação Concluída',
+        description: `${importedCount} arquivos adicionados ao acervo local.`,
+      })
+      refreshLibrary()
+    }
+
+    if (failedFiles.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Falha na Importação',
+        description: `Não foi possível importar ${failedFiles.length} arquivos.`,
+      })
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    await deleteTrack(id)
     toast({
-      title: 'Ação realizada',
-      description: `${action} aplicada a ${selectedItems.length} itens.`,
+      title: 'Faixa Removida',
+      description: 'Arquivo excluído do armazenamento local.',
+    })
+    refreshLibrary()
+  }
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedItems) {
+      if (id.startsWith('local-')) {
+        await deleteTrack(id)
+      }
+    }
+    toast({
+      title: 'Exclusão em Massa',
+      description: 'Itens locais selecionados foram removidos.',
     })
     setSelectedItems([])
+    refreshLibrary()
   }
-
-  const handleClone = (trackTitle: string) => {
-    toast({
-      title: 'Música Importada',
-      description: `${trackTitle} foi adicionada ao seu acervo local com sucesso.`,
-    })
-  }
-
-  const filteredGlobalLibrary = globalLibrary.filter(
-    (track) =>
-      track.title.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      track.composer.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      track.tags.some((tag) =>
-        tag.toLowerCase().includes(globalSearch.toLowerCase()),
-      ),
-  )
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center sticky top-0 z-10 bg-background/95 p-1 backdrop-blur">
-        <h1 className="text-3xl font-bold text-primary">Acervo</h1>
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center sticky top-0 z-10 bg-background/95 p-1 backdrop-blur border-b border-border/40 pb-4">
+        <div>
+          <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
+            <HardDrive className="w-8 h-8" /> Acervo Local
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie seus arquivos de áudio locais e offline.
+          </p>
+        </div>
 
-        <div className="flex gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="flex gap-2 w-full md:w-auto items-center">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            multiple
+            accept="audio/*"
+            onChange={handleFileChange}
+          />
+          <Button onClick={handleImportClick} className="shadow-sm">
+            <FolderInput className="w-4 h-4 mr-2" /> Importar Arquivos
+          </Button>
+
+          <div className="relative flex-1 md:w-64 ml-2">
             <Input
-              placeholder="Buscar música..."
-              className="pl-9 bg-card border-border"
+              placeholder="Filtrar arquivos..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-card border-border"
             />
           </div>
-
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Filter className="w-4 h-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Filtros Avançados</SheetTitle>
-                <SheetDescription>
-                  Refine sua busca por grau e ritual.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Grau</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Aprendiz</SelectItem>
-                      <SelectItem value="2">Companheiro</SelectItem>
-                      <SelectItem value="3">Mestre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
 
           <div className="border border-border rounded-md flex overflow-hidden">
             <Button
@@ -161,290 +195,171 @@ export default function Library() {
         </div>
       </div>
 
-      <Tabs defaultValue="local" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="local">Meu Acervo</TabsTrigger>
-          <TabsTrigger value="global" className="flex items-center gap-2">
-            <Globe className="w-3 h-3" /> Acervo Global
-          </TabsTrigger>
-        </TabsList>
+      {selectedItems.length > 0 && (
+        <div className="bg-primary/10 border border-primary/20 p-2 rounded-md flex items-center justify-between animate-fade-in-down">
+          <span className="text-sm font-medium ml-2 text-primary">
+            {selectedItems.length} selecionados
+          </span>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleBulkDelete}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash className="w-4 h-4 mr-2" /> Excluir Selecionados
+            </Button>
+          </div>
+        </div>
+      )}
 
-        <TabsContent value="local">
-          {selectedItems.length > 0 && (
-            <div className="bg-primary/10 border border-primary/20 p-2 rounded-md flex items-center justify-between mb-4 animate-fade-in-down">
-              <span className="text-sm font-medium ml-2 text-primary">
-                {selectedItems.length} selecionados
-              </span>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleBulkAction('Download')}
-                >
-                  <Download className="w-4 h-4 mr-2" /> Baixar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleBulkAction('Excluir')}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash className="w-4 h-4 mr-2" /> Excluir
-                </Button>
-              </div>
+      {viewMode === 'list' ? (
+        <div className="rounded-md border border-border bg-card">
+          <div className="grid grid-cols-12 gap-4 p-4 border-b border-border text-sm font-medium text-muted-foreground">
+            <div className="col-span-1"></div>
+            <div className="col-span-5 md:col-span-4">Título</div>
+            <div className="col-span-3 md:col-span-3 hidden md:block">
+              Compositor / Artista
             </div>
-          )}
-
-          {viewMode === 'list' ? (
-            <div className="rounded-md border border-border bg-card">
-              <div className="grid grid-cols-12 gap-4 p-4 border-b border-border text-sm font-medium text-muted-foreground">
-                <div className="col-span-1"></div>
-                <div className="col-span-5 md:col-span-4">Título</div>
-                <div className="col-span-3 md:col-span-3 hidden md:block">
-                  Compositor
+            <div className="col-span-3 md:col-span-2">Tipo</div>
+            <div className="col-span-2 md:col-span-1">Duração</div>
+            <div className="col-span-1"></div>
+          </div>
+          {libraryTracks.length > 0 ? (
+            libraryTracks.map((track, index) => (
+              <div
+                key={track.id}
+                className={cn(
+                  'grid grid-cols-12 gap-4 p-4 items-center border-b border-border last:border-0 hover:bg-secondary/10 transition-colors',
+                  selectedItems.includes(track.id) && 'bg-primary/5',
+                )}
+              >
+                <div className="col-span-1 flex items-center justify-center">
+                  <Checkbox
+                    checked={selectedItems.includes(track.id)}
+                    onCheckedChange={() => toggleSelection(track.id)}
+                  />
                 </div>
-                <div className="col-span-3 md:col-span-2">Ritual</div>
-                <div className="col-span-2 md:col-span-1">Status</div>
-                <div className="col-span-1"></div>
-              </div>
-              {musicLibrary.map((track) => (
-                <div
-                  key={track.id}
-                  className={cn(
-                    'grid grid-cols-12 gap-4 p-4 items-center border-b border-border last:border-0 hover:bg-secondary/10 transition-colors',
-                    selectedItems.includes(track.id) && 'bg-primary/5',
-                  )}
-                >
-                  <div className="col-span-1 flex items-center justify-center">
-                    <Checkbox
-                      checked={selectedItems.includes(track.id)}
-                      onCheckedChange={() => toggleSelection(track.id)}
-                    />
-                  </div>
-                  <div className="col-span-5 md:col-span-4 font-medium flex flex-col">
+                <div className="col-span-5 md:col-span-4 font-medium flex flex-col">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-secondary/20 rounded-md">
+                      <FileAudio className="w-4 h-4 text-primary" />
+                    </div>
                     <Link
                       to={`/library/${track.id}`}
-                      className="hover:text-primary transition-colors flex items-center gap-2"
+                      className="hover:text-primary transition-colors truncate"
                     >
                       {track.title || 'Sem título'}
-                      {track.offlinePriority && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Wifi className="w-3 h-3 text-green-500" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Prioridade Offline</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
                     </Link>
-                    <span className="text-xs text-muted-foreground md:hidden">
-                      {track.composer || 'Desconhecido'}
-                    </span>
-                  </div>
-                  <div className="col-span-3 md:col-span-3 hidden md:block text-muted-foreground">
-                    {track.composer || 'Desconhecido'}
-                  </div>
-                  <div className="col-span-3 md:col-span-2">
-                    <Badge variant="outline" className="text-xs">
-                      {track.ritual || 'Geral'}
-                    </Badge>
-                  </div>
-                  <div className="col-span-2 md:col-span-1 text-sm text-muted-foreground">
-                    {track.isDownloaded ? (
-                      <span className="flex items-center text-xs text-green-500">
-                        <Download className="w-3 h-3 mr-1" /> Baixado
-                      </span>
-                    ) : (
-                      <span className="text-xs">Nuvem</span>
-                    )}
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          Adicionar à Playlist
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>Editar Detalhes</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {musicLibrary.map((track) => (
-                <Card
-                  key={track.id}
-                  className={cn(
-                    'group overflow-hidden border-border transition-all hover:border-primary',
-                    selectedItems.includes(track.id) && 'ring-2 ring-primary',
-                  )}
-                >
-                  <div className="relative aspect-square bg-secondary/30 flex items-center justify-center">
-                    <div className="absolute top-2 left-2 z-10">
-                      <Checkbox
-                        checked={selectedItems.includes(track.id)}
-                        onCheckedChange={() => toggleSelection(track.id)}
-                      />
-                    </div>
-                    {track.offlinePriority && (
-                      <div className="absolute top-2 right-2 z-10 bg-background/80 rounded-full p-1">
-                        <Wifi className="w-3 h-3 text-green-500" />
-                      </div>
-                    )}
-                    <Music className="w-16 h-16 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
-                        size="icon"
-                        className="rounded-full bg-primary text-primary-foreground"
-                      >
-                        <Play className="w-5 h-5 ml-1" />
+                <div className="col-span-3 md:col-span-3 hidden md:block text-muted-foreground truncate">
+                  {track.composer || 'Desconhecido'}
+                </div>
+                <div className="col-span-3 md:col-span-2">
+                  <Badge variant="outline" className="text-xs">
+                    {track.isLocal ? 'Arquivo Local' : 'Demo Sistema'}
+                  </Badge>
+                </div>
+                <div className="col-span-2 md:col-span-1 text-sm text-muted-foreground">
+                  {track.duration || '--:--'}
+                </div>
+                <div className="col-span-1 flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-4 h-4" />
                       </Button>
-                    </div>
-                  </div>
-                  <CardContent className="p-3">
-                    <Link to={`/library/${track.id}`} className="block">
-                      <h3 className="font-semibold truncate hover:text-primary transition-colors">
-                        {track.title || 'Sem título'}
-                      </h3>
-                    </Link>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {track.composer || 'Desconhecido'}
-                    </p>
-                    <div className="flex items-center justify-between mt-3">
-                      <Badge variant="secondary" className="text-[10px]">
-                        {track.degree || 'Todos'}
-                      </Badge>
-                      {track.isFavorite && (
-                        <Heart className="w-4 h-4 text-red-500 fill-current" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          // Find the index in the full queue
+                          const idx = queue.findIndex((t) => t.id === track.id)
+                          if (idx !== -1) skipToIndex(idx)
+                        }}
+                      >
+                        <Play className="w-4 h-4 mr-2" /> Reproduzir
+                      </DropdownMenuItem>
+                      {track.isLocal && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(track.id)}
+                        >
+                          <Trash className="w-4 h-4 mr-2" /> Excluir Arquivo
+                        </DropdownMenuItem>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="global" className="space-y-4">
-          <div className="flex gap-4 items-center bg-secondary/10 p-4 rounded-md border border-border">
-            <Search className="w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar no Repositório Global..."
-              className="border-none bg-transparent shadow-none focus-visible:ring-0 px-0 text-lg"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-            />
-          </div>
-
-          <div className="rounded-md border border-border bg-card animate-fade-in">
-            <div className="p-4 border-b border-border bg-secondary/10 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Globe className="w-4 h-4" /> Repertório Compartilhado
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Explore músicas e playlists compartilhadas por outras Lojas.
-                </p>
-              </div>
-              <div className="hidden md:block">
-                <Badge variant="outline" className="gap-1">
-                  <ListMusic className="w-3 h-3" />5 Playlists Smart
-                </Badge>
-              </div>
-            </div>
-
-            {/* Simulated Shared Playlist for Demo */}
-            <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 hover:bg-primary/10 transition-colors">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium">
-                    Sessão Magna de Iniciação (Smart)
-                  </h4>
-                  <Badge variant="default" className="text-[10px]">
-                    Playlist
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Loja União #123 • 12 faixas
-                </p>
-                <div className="flex gap-2 mt-1">
-                  <Badge variant="secondary" className="text-[10px]">
-                    Solenidade
-                  </Badge>
-                  <Badge variant="secondary" className="text-[10px]">
-                    Smart Engine
-                  </Badge>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="hover:border-primary hover:text-primary"
-                onClick={() => handleClone('Sessão Magna de Iniciação')}
-              >
-                <Copy className="w-4 h-4 mr-2" /> Importar Playlist
+            ))
+          ) : (
+            <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
+              <FolderInput className="w-12 h-12 opacity-20" />
+              <p>
+                Nenhum arquivo encontrado. Importe arquivos do seu computador.
+              </p>
+              <Button variant="outline" onClick={handleImportClick}>
+                Importar Agora
               </Button>
             </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {libraryTracks.map((track) => (
+            <Card
+              key={track.id}
+              className={cn(
+                'group overflow-hidden border-border transition-all hover:border-primary',
+                selectedItems.includes(track.id) && 'ring-2 ring-primary',
+              )}
+            >
+              <div className="relative aspect-square bg-secondary/30 flex items-center justify-center">
+                <div className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selectedItems.includes(track.id)}
+                    onCheckedChange={() => toggleSelection(track.id)}
+                  />
+                </div>
+                {track.cover ? (
+                  <img
+                    src={track.cover}
+                    alt={track.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Music className="w-16 h-16 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
+                )}
 
-            {filteredGlobalLibrary.length > 0 ? (
-              filteredGlobalLibrary.map((track) => (
-                <div
-                  key={track.id}
-                  className="flex items-center justify-between p-4 border-b border-border last:border-0 hover:bg-secondary/10 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{track.title}</h4>
-                      <Badge variant="outline" className="text-[10px]">
-                        {track.degree}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {track.composer} • {track.lodge}
-                    </p>
-                    <div className="flex gap-2 mt-1">
-                      {track.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="text-[10px]"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <Button
-                    size="sm"
-                    variant="outline"
-                    className="hover:border-primary hover:text-primary"
-                    onClick={() => handleClone(track.title)}
+                    size="icon"
+                    className="rounded-full bg-primary text-primary-foreground"
+                    onClick={() => {
+                      const idx = queue.findIndex((t) => t.id === track.id)
+                      if (idx !== -1) skipToIndex(idx)
+                    }}
                   >
-                    <Copy className="w-4 h-4 mr-2" /> Importar
+                    <Play className="w-5 h-5 ml-1" />
                   </Button>
                 </div>
-              ))
-            ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <p>Nenhum resultado encontrado para "{globalSearch}"</p>
               </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+              <CardContent className="p-3">
+                <Link to={`/library/${track.id}`} className="block">
+                  <h3 className="font-semibold truncate hover:text-primary transition-colors">
+                    {track.title || 'Sem título'}
+                  </h3>
+                </Link>
+                <p className="text-sm text-muted-foreground truncate">
+                  {track.composer || 'Desconhecido'}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,5 @@
 import { Track } from '@/hooks/use-audio-player-context'
-import { Music, Disc } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Music, Disc, FileAudio } from 'lucide-react'
 
 interface TrackInfoProps {
   track: Track | undefined
@@ -10,7 +9,7 @@ interface TrackInfoProps {
 export function TrackInfo({ track, isLoading }: TrackInfoProps) {
   if (!track) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 py-8 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border">
+      <div className="flex flex-col items-center justify-center space-y-4 py-8 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border h-80 w-80 mx-auto">
         <Disc className="w-16 h-16 opacity-50 animate-spin-slow" />
         <p>Nenhuma música selecionada</p>
       </div>
@@ -19,7 +18,7 @@ export function TrackInfo({ track, isLoading }: TrackInfoProps) {
 
   return (
     <div className="flex flex-col items-center text-center space-y-6">
-      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group bg-card">
         {track.cover ? (
           <img
             src={track.cover}
@@ -27,23 +26,33 @@ export function TrackInfo({ track, isLoading }: TrackInfoProps) {
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-950 flex items-center justify-center">
-            <Music className="w-24 h-24 text-white/20" />
+          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-950 flex items-center justify-center relative">
+            <div className="absolute inset-0 bg-black/20" />
+            {track.isLocal ? (
+              <FileAudio className="w-32 h-32 text-white/20" />
+            ) : (
+              <Music className="w-32 h-32 text-white/20" />
+            )}
+            {track.isLocal && (
+              <div className="absolute bottom-4 bg-black/50 px-3 py-1 rounded-full text-xs text-white/70 backdrop-blur-sm">
+                Arquivo Local
+              </div>
+            )}
           </div>
         )}
 
         {isLoading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm z-10">
             <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
 
       <div className="space-y-2 max-w-md w-full">
-        <h2 className="text-2xl font-bold tracking-tight leading-none truncate">
+        <h2 className="text-2xl font-bold tracking-tight leading-none truncate px-4">
           {track.title}
         </h2>
-        <p className="text-lg text-muted-foreground font-medium truncate">
+        <p className="text-lg text-muted-foreground font-medium truncate px-4">
           {track.composer}
         </p>
         <div className="flex justify-center gap-2 pt-2">
