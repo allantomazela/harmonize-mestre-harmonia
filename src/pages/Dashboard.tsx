@@ -25,7 +25,7 @@ import {
   Calendar as CalendarIcon,
   Database,
 } from 'lucide-react'
-import { upcomingEvents, chartData, playlists } from '@/lib/mock-data'
+import { chartData, playlists } from '@/lib/mock-data'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Progress } from '@/components/ui/progress'
 
@@ -33,9 +33,8 @@ export default function Dashboard() {
   const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
   const { queue } = useAudioPlayer()
 
-  const localCount = queue.filter(t => t.isLocal).length
-  const totalDuration = queue.length * 4 // Mock avg duration
-  const storageUsagePercent = Math.min(100, (localCount / 100) * 100) // Mock usage
+  const localCount = queue.filter((t) => t.isLocal).length
+  const storageUsagePercent = Math.min(100, (localCount / 100) * 100)
 
   const chartConfig = {
     opening: { label: 'Abertura', color: 'hsl(var(--chart-1))' },
@@ -93,7 +92,7 @@ export default function Dashboard() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
               </PieChart>
-            </CardContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -105,10 +104,13 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-             <div className="text-2xl font-bold">
-                 {localCount} <span className="text-sm font-normal text-muted-foreground">arquivos importados</span>
-             </div>
-            
+            <div className="text-2xl font-bold">
+              {localCount}{' '}
+              <span className="text-sm font-normal text-muted-foreground">
+                arquivos importados
+              </span>
+            </div>
+
             <div className="space-y-2 pt-2 border-t border-border">
               <div className="flex justify-between text-xs font-medium">
                 <span>Capacidade do Navegador</span>
@@ -119,15 +121,15 @@ export default function Dashboard() {
                 Seus arquivos estão salvos com segurança neste dispositivo.
               </p>
             </div>
-            
-             <Link to="/library">
-                <Button
+
+            <Link to="/library">
+              <Button
                 variant="outline"
                 size="sm"
                 className="w-full text-xs mt-2"
-                >
+              >
                 <HardDrive className="w-3 h-3 mr-2" /> Gerenciar Arquivos
-                </Button>
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -155,12 +157,12 @@ export default function Dashboard() {
               </Button>
             </Link>
             <Link to="/calendar">
-                <Button
+              <Button
                 variant="outline"
                 className="w-full justify-start hover:border-primary"
-                >
+              >
                 <CalendarIcon className="w-4 h-4 mr-2" /> Agenda
-                </Button>
+              </Button>
             </Link>
           </CardContent>
         </Card>
