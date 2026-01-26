@@ -15,6 +15,7 @@ import MusicDetails from './pages/MusicDetails'
 import PlaylistDetails from './pages/PlaylistDetails'
 import Player from './pages/Player'
 import Settings from './pages/Settings'
+import CalendarPage from './pages/CalendarPage'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
 // AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)
@@ -39,7 +40,7 @@ const App = () => (
           <Route path="/playlists/:id" element={<PlaylistDetails />} />
           <Route path="/player" element={<Player />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/calendar" element={<Dashboard />} />
+          <Route path="/calendar" element={<CalendarPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

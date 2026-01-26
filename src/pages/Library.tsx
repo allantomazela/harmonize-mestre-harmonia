@@ -35,6 +35,7 @@ import {
   Play,
   Globe,
   Copy,
+  Wifi,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -44,10 +45,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function Library() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [globalSearch, setGlobalSearch] = useState('')
   const { toast } = useToast()
 
   const toggleSelection = (id: string) => {
@@ -66,10 +74,19 @@ export default function Library() {
 
   const handleClone = (trackTitle: string) => {
     toast({
-      title: 'Música Clonada',
-      description: `${trackTitle} foi adicionada ao seu acervo local.`,
+      title: 'Música Importada',
+      description: `${trackTitle} foi adicionada ao seu acervo local com sucesso.`,
     })
   }
+
+  const filteredGlobalLibrary = globalLibrary.filter(
+    (track) =>
+      track.title.toLowerCase().includes(globalSearch.toLowerCase()) ||
+      track.composer.toLowerCase().includes(globalSearch.toLowerCase()) ||
+      track.tags.some((tag) =>
+        tag.toLowerCase().includes(globalSearch.toLowerCase()),
+      ),
+  )
 
   return (
     <div className="space-y-6 pb-20">
@@ -112,7 +129,6 @@ export default function Library() {
                     </SelectContent>
                   </Select>
                 </div>
-                {/* More filters... */}
               </div>
             </SheetContent>
           </Sheet>
@@ -187,7 +203,7 @@ export default function Library() {
                   Compositor
                 </div>
                 <div className="col-span-3 md:col-span-2">Ritual</div>
-                <div className="col-span-2 md:col-span-1">Duração</div>
+                <div className="col-span-2 md:col-span-1">Status</div>
                 <div className="col-span-1"></div>
               </div>
               {musicLibrary.map((track) => (
@@ -207,9 +223,21 @@ export default function Library() {
                   <div className="col-span-5 md:col-span-4 font-medium flex flex-col">
                     <Link
                       to={`/library/${track.id}`}
-                      className="hover:text-primary transition-colors"
+                      className="hover:text-primary transition-colors flex items-center gap-2"
                     >
                       {track.title || 'Sem título'}
+                      {track.offlinePriority && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Wifi className="w-3 h-3 text-green-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Prioridade Offline</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </Link>
                     <span className="text-xs text-muted-foreground md:hidden">
                       {track.composer || 'Desconhecido'}
@@ -224,7 +252,13 @@ export default function Library() {
                     </Badge>
                   </div>
                   <div className="col-span-2 md:col-span-1 text-sm text-muted-foreground">
-                    {track.duration || '--:--'}
+                    {track.isDownloaded ? (
+                      <span className="flex items-center text-xs text-green-500">
+                        <Download className="w-3 h-3 mr-1" /> Baixado
+                      </span>
+                    ) : (
+                      <span className="text-xs">Nuvem</span>
+                    )}
                   </div>
                   <div className="col-span-1 flex justify-end">
                     <DropdownMenu>
@@ -264,6 +298,11 @@ export default function Library() {
                         onCheckedChange={() => toggleSelection(track.id)}
                       />
                     </div>
+                    {track.offlinePriority && (
+                      <div className="absolute top-2 right-2 z-10 bg-background/80 rounded-full p-1">
+                        <Wifi className="w-3 h-3 text-green-500" />
+                      </div>
+                    )}
                     <Music className="w-16 h-16 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <Button
@@ -298,46 +337,70 @@ export default function Library() {
           )}
         </TabsContent>
 
-        <TabsContent value="global">
-          <div className="rounded-md border border-border bg-card">
+        <TabsContent value="global" className="space-y-4">
+          <div className="flex gap-4 items-center bg-secondary/10 p-4 rounded-md border border-border">
+            <Search className="w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar no Repositório Global..."
+              className="border-none bg-transparent shadow-none focus-visible:ring-0 px-0 text-lg"
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="rounded-md border border-border bg-card animate-fade-in">
             <div className="p-4 border-b border-border bg-secondary/10">
-              <h3 className="font-semibold">Repertório Compartilhado</h3>
+              <h3 className="font-semibold flex items-center gap-2">
+                <Globe className="w-4 h-4" /> Repertório Compartilhado
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Explore músicas compartilhadas por outras Lojas da rede
-                Harmonize.
+                Explore e importe músicas compartilhadas por outras Lojas da
+                rede Harmonize.
               </p>
             </div>
-            {globalLibrary.map((track) => (
-              <div
-                key={track.id}
-                className="flex items-center justify-between p-4 border-b border-border last:border-0 hover:bg-secondary/10 transition-colors"
-              >
-                <div className="flex-1">
-                  <h4 className="font-medium">{track.title}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {track.composer} • {track.lodge}
-                  </p>
-                  <div className="flex gap-2 mt-1">
-                    {track.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="text-[10px]"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleClone(track.title)}
+            {filteredGlobalLibrary.length > 0 ? (
+              filteredGlobalLibrary.map((track) => (
+                <div
+                  key={track.id}
+                  className="flex items-center justify-between p-4 border-b border-border last:border-0 hover:bg-secondary/10 transition-colors"
                 >
-                  <Copy className="w-4 h-4 mr-2" /> Clonar
-                </Button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{track.title}</h4>
+                      <Badge variant="outline" className="text-[10px]">
+                        {track.degree}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {track.composer} • {track.lodge}
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      {track.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-[10px]"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hover:border-primary hover:text-primary"
+                    onClick={() => handleClone(track.title)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" /> Importar
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <p>Nenhum resultado encontrado para "{globalSearch}"</p>
               </div>
-            ))}
+            )}
           </div>
         </TabsContent>
       </Tabs>

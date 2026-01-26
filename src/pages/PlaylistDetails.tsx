@@ -16,6 +16,7 @@ import {
   Sparkles,
   Plus,
   Clock,
+  Wand2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
@@ -49,7 +50,11 @@ export default function PlaylistDetails() {
       ?.map((itemId) => musicLibrary.find((m) => m.id === itemId))
       .filter(Boolean) || []
   const [tracks, setTracks] = useState(initialTracks)
-  const [smartCriteria, setSmartCriteria] = useState({ degree: '', ritual: '' })
+  const [smartCriteria, setSmartCriteria] = useState({
+    degree: '',
+    ritual: '',
+    tone: '',
+  })
 
   if (!playlist) return <div className="p-6">Playlist não encontrada</div>
 
@@ -70,13 +75,34 @@ export default function PlaylistDetails() {
   }
 
   const handleSmartGenerate = () => {
-    // Mock generation
+    // Advanced mock generation logic based on criteria
+    const filteredTracks = musicLibrary.filter((track) => {
+      const matchDegree = smartCriteria.degree
+        ? track.degree === smartCriteria.degree || track.degree === 'Todos'
+        : true
+      const matchRitual = smartCriteria.ritual
+        ? track.ritual === smartCriteria.ritual
+        : true
+      const matchTone = smartCriteria.tone
+        ? track.tone === smartCriteria.tone
+        : true
+      return matchDegree && matchRitual && matchTone
+    })
+
+    if (filteredTracks.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhuma música encontrada',
+        description: 'Tente ajustar os critérios da Smart Playlist.',
+      })
+      return
+    }
+
+    setTracks(filteredTracks)
     toast({
       title: 'Playlist Gerada',
-      description: `Playlist atualizada com músicas para ${smartCriteria.ritual} de ${smartCriteria.degree}.`,
+      description: `Encontramos ${filteredTracks.length} faixas compatíveis.`,
     })
-    // Shuffle or replace mock tracks
-    setTracks([...initialTracks].reverse())
   }
 
   return (
@@ -113,20 +139,27 @@ export default function PlaylistDetails() {
 
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Sparkles className="w-4 h-4 mr-2" /> Smart Playlist
+                  <Button
+                    variant="outline"
+                    className="border-primary/50 text-primary hover:bg-primary/10"
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" /> Smart Engine
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Gerar Smart Playlist</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Gerador de Playlist Inteligente
+                    </DialogTitle>
                     <DialogDescription>
-                      Preencha os critérios para gerar uma lista automática.
+                      O sistema selecionará automaticamente as melhores músicas
+                      baseadas nos parâmetros rituais definidos abaixo.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Grau</Label>
+                      <Label>Grau do Trabalho</Label>
                       <Select
                         onValueChange={(v) =>
                           setSmartCriteria((p) => ({ ...p, degree: v }))
@@ -144,27 +177,53 @@ export default function PlaylistDetails() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Ritual</Label>
-                      <Select
-                        onValueChange={(v) =>
-                          setSmartCriteria((p) => ({ ...p, ritual: v }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Abertura">Abertura</SelectItem>
-                          <SelectItem value="Encerramento">
-                            Encerramento
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Ritual / Momento</Label>
+                        <Select
+                          onValueChange={(v) =>
+                            setSmartCriteria((p) => ({ ...p, ritual: v }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Qualquer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Abertura">Abertura</SelectItem>
+                            <SelectItem value="Elevação">Elevação</SelectItem>
+                            <SelectItem value="Exaltação">Exaltação</SelectItem>
+                            <SelectItem value="Encerramento">
+                              Encerramento
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tom Emocional</Label>
+                        <Select
+                          onValueChange={(v) =>
+                            setSmartCriteria((p) => ({ ...p, tone: v }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Qualquer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Solene">Solene</SelectItem>
+                            <SelectItem value="Introspectivo">
+                              Introspectivo
+                            </SelectItem>
+                            <SelectItem value="Alegre">Alegre</SelectItem>
+                            <SelectItem value="Fraternal">Fraternal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button onClick={handleSmartGenerate}>Gerar</Button>
+                    <Button onClick={handleSmartGenerate} className="w-full">
+                      <Wand2 className="w-4 h-4 mr-2" /> Gerar Automaticamente
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -217,8 +276,13 @@ export default function PlaylistDetails() {
                       {track.composer}
                     </div>
                   </div>
-                  <Badge variant="outline">{track.ritual}</Badge>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="flex gap-2">
+                    <Badge variant="outline">{track.ritual}</Badge>
+                    {track.tone && (
+                      <Badge variant="secondary">{track.tone}</Badge>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground w-12 text-right">
                     {track.duration}
                   </div>
                   <Button variant="ghost" size="icon">
@@ -232,7 +296,7 @@ export default function PlaylistDetails() {
               variant="ghost"
               className="w-full border-dashed border border-border"
             >
-              <Plus className="w-4 h-4 mr-2" /> Adicionar Faixa
+              <Plus className="w-4 h-4 mr-2" /> Adicionar Faixa Manualmente
             </Button>
           </div>
         </CardContent>

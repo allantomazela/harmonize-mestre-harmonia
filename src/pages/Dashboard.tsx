@@ -128,11 +128,11 @@ export default function Dashboard() {
             <div className="space-y-2 pt-2 border-t border-border">
               <div className="flex justify-between text-xs font-medium">
                 <span>Armazenamento</span>
-                <span>245MB / 500MB</span>
+                <span>1.2GB / 5GB</span>
               </div>
-              <Progress value={49} className="h-2" />
+              <Progress value={24} className="h-2" />
               <p className="text-xs text-muted-foreground pt-1">
-                45 faixas baixadas • 3 pendentes
+                Downloads Prioritários: 2
               </p>
             </div>
 
@@ -237,32 +237,54 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {upcomingEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50 hover:border-primary/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary/10 text-primary p-2 rounded-md font-bold text-center w-14">
-                    <span className="text-xs block uppercase">
-                      {event.date.split(' ')[1]}
-                    </span>
-                    <span className="text-lg block">
-                      {event.date.split(' ')[0]}
-                    </span>
+            {upcomingEvents.map((event) => {
+              const linkedPlaylist = playlists.find(
+                (p) => p.id === event.playlistId,
+              )
+              return (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50 hover:border-primary/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-primary/10 text-primary p-2 rounded-md font-bold text-center w-14">
+                      <span className="text-xs block uppercase">
+                        {event.date.split(' ')[1]}
+                      </span>
+                      <span className="text-lg block">
+                        {event.date.split(' ')[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">{event.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {event.date.split(',')[1]}
+                      </p>
+                      {linkedPlaylist && (
+                        <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                          <Music className="w-3 h-3" />
+                          <span className="truncate max-w-[150px]">
+                            {linkedPlaylist.title}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold">{event.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {event.date.split(',')[1]}
-                    </p>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant="outline" className="capitalize">
+                      {event.type}
+                    </Badge>
+                    {linkedPlaylist && (
+                      <Link to={`/playlists/${linkedPlaylist.id}`}>
+                        <Button size="sm" variant="ghost" className="h-6 px-2">
+                          <Play className="w-3 h-3 mr-1" /> Tocar
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
-                <Badge variant="outline" className="capitalize">
-                  {event.type}
-                </Badge>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>

@@ -8,7 +8,9 @@ export const musicLibrary = [
     degree: 'Aprendiz',
     ritual: 'Abertura',
     occasion: 'Solenidade',
+    tone: 'Solene',
     isDownloaded: true,
+    offlinePriority: true,
     isFavorite: true,
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     cover:
@@ -22,7 +24,9 @@ export const musicLibrary = [
     degree: 'Companheiro',
     ritual: 'Elevação',
     occasion: 'Regular',
+    tone: 'Introspectivo',
     isDownloaded: true,
+    offlinePriority: false,
     isFavorite: false,
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
     cover: 'https://img.usecurling.com/p/400/400?q=orchestra&color=black',
@@ -35,7 +39,9 @@ export const musicLibrary = [
     degree: 'Mestre',
     ritual: 'Exaltação',
     occasion: 'Magna',
+    tone: 'Somente',
     isDownloaded: false,
+    offlinePriority: false,
     isFavorite: true,
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
     cover: 'https://img.usecurling.com/p/400/400?q=piano&color=black',
@@ -48,7 +54,9 @@ export const musicLibrary = [
     degree: 'Todos',
     ritual: 'Encerramento',
     occasion: 'Regular',
+    tone: 'Fraternal',
     isDownloaded: true,
+    offlinePriority: true,
     isFavorite: false,
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     cover: 'https://img.usecurling.com/p/400/400?q=violin&color=black',
@@ -61,7 +69,9 @@ export const musicLibrary = [
     degree: 'Aprendiz',
     ritual: 'Abertura',
     occasion: 'Festiva',
+    tone: 'Alegre',
     isDownloaded: false,
+    offlinePriority: false,
     isFavorite: false,
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
     cover: 'https://img.usecurling.com/p/400/400?q=harp&color=black',
@@ -95,6 +105,24 @@ export const globalLibrary = [
     lodge: 'Grande Loja #33',
     degree: 'Aprendiz',
     tags: ['Silêncio', 'Reflexão'],
+  },
+  {
+    id: 'g4',
+    title: 'Fanfarra Real',
+    composer: 'Desconhecido',
+    duration: '1:30',
+    lodge: 'Loja Unida #77',
+    degree: 'Todos',
+    tags: ['Entrada', 'Festiva'],
+  },
+  {
+    id: 'g5',
+    title: 'Adagio em Sol',
+    composer: 'Albinoni',
+    duration: '5:45',
+    lodge: 'Loja Luz do Sul #12',
+    degree: 'Companheiro',
+    tags: ['Elevação', 'Triste'],
   },
 ]
 
@@ -154,9 +182,27 @@ export const lodgeMembers = [
 ]
 
 export const upcomingEvents = [
-  { id: '1', title: 'Sessão Ordinária', date: '28 Jan, 20:00', type: 'Grau 1' },
-  { id: '2', title: 'Iniciação', date: '04 Fev, 19:30', type: 'Magna' },
-  { id: '3', title: 'Elevação', date: '11 Fev, 20:00', type: 'Grau 2' },
+  {
+    id: '1',
+    title: 'Sessão Ordinária',
+    date: '28 Jan, 20:00',
+    type: 'Grau 1',
+    playlistId: '2',
+  },
+  {
+    id: '2',
+    title: 'Iniciação',
+    date: '04 Fev, 19:30',
+    type: 'Magna',
+    playlistId: '1',
+  },
+  {
+    id: '3',
+    title: 'Elevação',
+    date: '11 Fev, 20:00',
+    type: 'Grau 2',
+    playlistId: null,
+  },
 ]
 
 export const chartData = [
