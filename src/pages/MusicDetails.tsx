@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { musicLibrary } from '@/lib/mock-data'
 import {
   ChevronLeft,
   Save,
@@ -20,19 +19,41 @@ import {
   Pause,
   Download,
   Heart,
+  FileAudio,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Slider } from '@/components/ui/slider'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
+import { deleteTrack } from '@/lib/storage'
 
 export default function MusicDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { queue, updateTrack, refreshLibrary } = useAudioPlayer()
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  // Mock fetching data
-  const track = musicLibrary.find((m) => m.id === id) || musicLibrary[0]
+  // Find track in context queue
+  const track = queue.find((m) => m.id === id)
+
+  const [formData, setFormData] = useState<any>({})
+
+  useEffect(() => {
+    if (track) {
+      setFormData({
+        title: track.title,
+        composer: track.composer,
+        degree: track.degree,
+        ritual: track.ritual,
+        occasion: track.occasion,
+        genre: track.genre,
+        bpm: track.bpm,
+        year: track.year,
+        album: track.album,
+      })
+    }
+  }, [track])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>
@@ -44,14 +65,36 @@ export default function MusicDetails() {
     return () => clearInterval(interval)
   }, [isPlaying])
 
-  const handleSave = () => {
-    toast({
-      title: 'Salvo',
-      description: 'As alterações foram salvas com sucesso.',
-    })
+  const handleSave = async () => {
+    if (track && track.isLocal) {
+      await updateTrack({ ...track, ...formData })
+      toast({
+        title: 'Salvo',
+        description: 'As alterações foram salvas com sucesso.',
+      })
+    } else {
+      toast({
+        title: 'Ação não permitida',
+        description: 'Apenas arquivos locais podem ser editados.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (track && track.isLocal && id) {
+      if (confirm('Tem certeza que deseja excluir esta faixa?')) {
+        await deleteTrack(id)
+        await refreshLibrary()
+        toast({ title: 'Faixa excluída' })
+        navigate('/library')
+      }
+    }
   }
 
   const togglePlay = () => setIsPlaying(!isPlaying)
+
+  if (!track) return <div className="p-8">Música não encontrada.</div>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -60,14 +103,18 @@ export default function MusicDetails() {
         className="pl-0 text-muted-foreground hover:text-foreground"
         onClick={() => navigate(-1)}
       >
-        <ChevronLeft className="w-4 h-4 mr-2" /> Voltar para Acervo
+        <ChevronLeft className="w-4 h-4 mr-2" /> Voltar
       </Button>
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="w-full md:w-1/3 space-y-6">
           <Card className="border-border overflow-hidden">
             <div className="aspect-square bg-secondary/20 flex items-center justify-center relative group">
-              <span className="text-6xl">🎵</span>
+              {track.cover ? (
+                <img src={track.cover} className="w-full h-full object-cover" />
+              ) : (
+                <FileAudio className="w-24 h-24 text-primary opacity-50" />
+              )}
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   size="icon"
@@ -103,20 +150,17 @@ export default function MusicDetails() {
               </div>
 
               <div className="flex justify-center gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1 gap-2">
-                  <Download className="w-4 h-4" />{' '}
-                  {track.isDownloaded ? 'Baixado' : 'Baixar'}
-                </Button>
                 <Button
                   variant="outline"
-                  size="icon"
-                  className={
-                    track.isFavorite ? 'text-red-500 border-red-500/50' : ''
-                  }
+                  size="sm"
+                  className="flex-1 gap-2"
+                  disabled={!track.url && !track.file}
                 >
-                  <Heart
-                    className={`w-4 h-4 ${track.isFavorite ? 'fill-current' : ''}`}
-                  />
+                  <Download className="w-4 h-4" />{' '}
+                  {track.file ? 'Baixado' : 'Stream'}
+                </Button>
+                <Button variant="outline" size="icon">
+                  <Heart className="w-4 h-4" />
                 </Button>
               </div>
             </CardContent>
@@ -126,21 +170,68 @@ export default function MusicDetails() {
         <div className="w-full md:w-2/3">
           <Card className="border-border h-full">
             <CardHeader>
-              <CardTitle>Editar Detalhes</CardTitle>
+              <CardTitle>
+                Editar Detalhes {track.isLocal && '(Local)'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Título</Label>
-                  <Input id="title" defaultValue={track.title} />
+                  <Input
+                    id="title"
+                    value={formData.title || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="composer">Compositor</Label>
-                  <Input id="composer" defaultValue={track.composer} />
+                  <Input
+                    id="composer"
+                    value={formData.composer || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, composer: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                  />
+                </div>
+
+                {/* Advanced Metadata */}
+                <div className="space-y-2">
+                  <Label htmlFor="album">Álbum</Label>
+                  <Input
+                    id="album"
+                    value={formData.album || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, album: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                  />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="genre">Gênero</Label>
+                  <Input
+                    id="genre"
+                    value={formData.genre || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, genre: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="degree">Grau</Label>
-                  <Select defaultValue={track.degree}>
+                  <Select
+                    value={formData.degree}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, degree: v })
+                    }
+                    disabled={!track.isLocal}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -149,12 +240,19 @@ export default function MusicDetails() {
                       <SelectItem value="Companheiro">Companheiro</SelectItem>
                       <SelectItem value="Mestre">Mestre</SelectItem>
                       <SelectItem value="Todos">Todos</SelectItem>
+                      <SelectItem value="Geral">Geral</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ritual">Momento Ritualístico</Label>
-                  <Select defaultValue={track.ritual}>
+                  <Select
+                    value={formData.ritual}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, ritual: v })
+                    }
+                    disabled={!track.isLocal}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -163,12 +261,19 @@ export default function MusicDetails() {
                       <SelectItem value="Elevação">Elevação</SelectItem>
                       <SelectItem value="Exaltação">Exaltação</SelectItem>
                       <SelectItem value="Encerramento">Encerramento</SelectItem>
+                      <SelectItem value="Geral">Geral</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="occasion">Ocasião</Label>
-                  <Select defaultValue={track.occasion}>
+                  <Select
+                    value={formData.occasion}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, occasion: v })
+                    }
+                    disabled={!track.isLocal}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -183,19 +288,24 @@ export default function MusicDetails() {
               </div>
 
               <div className="pt-6 flex justify-between">
-                <Button
-                  variant="destructive"
-                  variant="ghost"
-                  className="text-destructive hover:bg-destructive/10"
-                >
-                  <Trash className="w-4 h-4 mr-2" /> Excluir Faixa
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Save className="w-4 h-4 mr-2" /> Salvar Alterações
-                </Button>
+                {track.isLocal && (
+                  <Button
+                    variant="ghost"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={handleDelete}
+                  >
+                    <Trash className="w-4 h-4 mr-2" /> Excluir Faixa
+                  </Button>
+                )}
+
+                {track.isLocal && (
+                  <Button
+                    onClick={handleSave}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 ml-auto"
+                  >
+                    <Save className="w-4 h-4 mr-2" /> Salvar Alterações
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

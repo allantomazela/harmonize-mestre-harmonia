@@ -23,9 +23,21 @@ import { Switch } from '@/components/ui/switch'
 import { Progress } from '@/components/ui/progress'
 import { lodgeMembers } from '@/lib/mock-data'
 import { useToast } from '@/hooks/use-toast'
-import { Mail, UserPlus, Trash2, Database, HardDrive } from 'lucide-react'
+import {
+  Mail,
+  UserPlus,
+  Trash2,
+  Database,
+  HardDrive,
+  Download,
+  Upload,
+} from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
-import { clearAllTracks } from '@/lib/storage'
+import {
+  clearAllTracks,
+  exportLibraryData,
+  importLibraryData,
+} from '@/lib/storage'
 
 export default function Settings() {
   const { toast } = useToast()
@@ -54,6 +66,57 @@ export default function Settings() {
         description: 'Todos os arquivos locais foram removidos.',
       })
     }
+  }
+
+  const handleExportBackup = async () => {
+    try {
+      const data = await exportLibraryData()
+      const blob = new Blob([data], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `harmonize-backup-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({
+        title: 'Backup Exportado',
+        description: 'Arquivo de configuração salvo com sucesso.',
+      })
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Exportar',
+        description: 'Não foi possível gerar o arquivo de backup.',
+      })
+    }
+  }
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      try {
+        const json = event.target?.result as string
+        await importLibraryData(json)
+        await refreshLibrary()
+        toast({
+          title: 'Backup Importado',
+          description: 'Estrutura e configurações restauradas com sucesso.',
+        })
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro na Importação',
+          description: 'Arquivo de backup inválido ou corrompido.',
+        })
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
   }
 
   const localFileCount = queue.filter((t) => t.isLocal).length
@@ -161,10 +224,10 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" /> Armazenamento do Dispositivo
+                <Database className="w-5 h-5" /> Armazenamento & Backup
               </CardTitle>
               <CardDescription>
-                Gerencie os arquivos de áudio importados neste navegador.
+                Gerencie arquivos locais e backups de configuração.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -179,8 +242,49 @@ export default function Settings() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Estes arquivos estão salvos no banco de dados local do seu
-                  navegador (IndexedDB).
+                  navegador.
                 </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border border-border p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Download className="w-4 h-4 text-primary" /> Exportar
+                    Backup
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Salva um arquivo JSON com sua organização de pastas e
+                    metadados (não inclui os arquivos de áudio).
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleExportBackup}
+                  >
+                    Baixar Configuração
+                  </Button>
+                </div>
+
+                <div className="border border-border p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Upload className="w-4 h-4 text-primary" /> Importar Backup
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Restaura pastas e configurações a partir de um arquivo
+                    previamente exportado.
+                  </p>
+                  <div className="relative">
+                    <Button variant="outline" className="w-full">
+                      Selecionar Arquivo
+                    </Button>
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={handleImportBackup}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg border border-border">
@@ -197,7 +301,7 @@ export default function Settings() {
                 <Switch defaultChecked disabled />
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-4 border-t border-border">
                 <Button
                   variant="outline"
                   className="text-destructive hover:text-destructive hover:border-destructive"

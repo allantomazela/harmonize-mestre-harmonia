@@ -52,7 +52,6 @@ export default function LiveMode() {
     }
   }
 
-  // Handle escape to exit fullscreen
   useEffect(() => {
     const handleEsc = () => {
       if (!document.fullscreenElement) setIsFullscreen(false)
@@ -62,55 +61,55 @@ export default function LiveMode() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col p-6 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-black text-white flex flex-col p-6 animate-in fade-in duration-500 font-sans">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-2 opacity-70">
-          <div className="h-3 w-3 rounded-full bg-red-600 animate-pulse" />
-          <span className="text-sm font-bold uppercase tracking-widest">
-            Live Presentation Mode
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-4 rounded-full bg-red-600 animate-pulse border border-red-400" />
+          <span className="text-xl font-bold uppercase tracking-widest text-red-500">
+            Live Performance Mode
           </span>
         </div>
         <div className="flex gap-4">
           <Button
-            variant="ghost"
-            size="icon"
+            variant="outline"
+            size="lg"
             onClick={toggleFullscreen}
-            className="text-white hover:bg-white/10"
+            className="border-2 border-white text-white hover:bg-white hover:text-black font-bold"
           >
             <Maximize2 className="w-6 h-6" />
           </Button>
           <Button
-            variant="ghost"
-            size="icon"
+            variant="destructive"
+            size="lg"
             onClick={() => navigate('/player')}
-            className="text-white hover:bg-white/10"
+            className="font-bold border-2 border-destructive"
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 mr-2" /> SAIR
           </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-12 max-w-5xl mx-auto w-full">
-        {/* Track Info */}
-        <div className="text-center space-y-4">
+      <div className="flex-1 flex flex-col justify-center items-center gap-12 max-w-6xl mx-auto w-full">
+        {/* Track Info - High Contrast */}
+        <div className="text-center space-y-6">
           {currentTrack ? (
             <>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
+              <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-none text-white drop-shadow-lg">
                 {currentTrack.title}
               </h1>
-              <p className="text-2xl md:text-3xl text-white/60 font-serif">
+              <p className="text-3xl md:text-5xl text-yellow-400 font-bold font-serif">
                 {currentTrack.composer}
               </p>
-              <div className="flex justify-center gap-3 mt-4">
+              <div className="flex justify-center gap-4 mt-6">
                 {currentTrack.ritual && (
-                  <span className="px-4 py-1 bg-white/10 rounded-full text-sm border border-white/20">
+                  <span className="px-6 py-2 bg-blue-600 text-white rounded-full text-xl font-bold border-2 border-blue-400 uppercase">
                     {currentTrack.ritual}
                   </span>
                 )}
                 {currentTrack.degree && (
-                  <span className="px-4 py-1 bg-white/10 rounded-full text-sm border border-white/20">
+                  <span className="px-6 py-2 bg-gray-700 text-white rounded-full text-xl font-bold border-2 border-gray-500 uppercase">
                     {currentTrack.degree}
                   </span>
                 )}
@@ -118,80 +117,98 @@ export default function LiveMode() {
             </>
           ) : (
             <div className="flex flex-col items-center gap-4 opacity-50">
-              <Music className="w-24 h-24" />
-              <h1 className="text-4xl">Aguardando Seleção...</h1>
+              <Music className="w-32 h-32" />
+              <h1 className="text-5xl font-bold">Aguardando Seleção...</h1>
             </div>
           )}
         </div>
 
-        {/* Progress */}
-        <div className="w-full space-y-4">
+        {/* Progress - Large and Visible */}
+        <div className="w-full space-y-4 px-12">
+          <div className="relative h-6 w-full bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+            <div
+              className="absolute top-0 left-0 h-full bg-yellow-500 transition-all duration-100 ease-linear"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-3xl font-mono font-bold text-white">
+            <span>{formatTime(currentTime)}</span>
+            <span className="text-gray-400">
+              -{formatTime((duration || 0) - currentTime)}
+            </span>
+          </div>
+          {/* Slider hidden but interactive for seeking if needed, or rely on visual bar */}
           <Slider
             value={[currentTime]}
             max={duration || 100}
             step={1}
             onValueChange={(v) => seek(v[0])}
-            className="h-4 cursor-pointer [&>span:first-child]:h-4 [&>span:first-child]:bg-white/20 [&>span:first-child>span]:bg-primary [&>span:last-child]:h-8 [&>span:last-child]:w-8 [&>span:last-child]:border-4"
+            className="opacity-0 absolute inset-x-12 h-12 cursor-pointer"
           />
-          <div className="flex justify-between text-xl font-mono text-white/60">
-            <span>{formatTime(currentTime)}</span>
-            <span>-{formatTime((duration || 0) - currentTime)}</span>
-          </div>
         </div>
 
-        {/* Huge Controls */}
-        <div className="flex items-center gap-12">
+        {/* Huge Controls - High Visibility */}
+        <div className="flex items-center gap-16">
           <Button
-            variant="ghost"
-            className="h-24 w-24 rounded-full hover:bg-white/10 text-white"
+            className="h-32 w-32 rounded-full border-4 border-white bg-transparent text-white hover:bg-white hover:text-black transition-all"
             onClick={playPrev}
           >
-            <SkipBack className="w-12 h-12 fill-current" />
+            <SkipBack className="w-16 h-16 fill-current" />
           </Button>
 
           <Button
             className={cn(
-              'h-32 w-32 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.3)] transition-all hover:scale-105 active:scale-95',
-              isPlaying ? 'bg-primary text-black' : 'bg-white text-black',
+              'h-48 w-48 rounded-full shadow-[0_0_80px_rgba(255,215,0,0.4)] transition-all hover:scale-105 active:scale-95 border-4',
+              isPlaying
+                ? 'bg-yellow-500 text-black border-yellow-300 hover:bg-yellow-400'
+                : 'bg-green-600 text-white border-green-400 hover:bg-green-500',
             )}
             onClick={togglePlay}
           >
             {isPlaying ? (
-              <Pause className="w-16 h-16 fill-current" />
+              <Pause className="w-24 h-24 fill-current" />
             ) : (
-              <Play className="w-16 h-16 fill-current ml-2" />
+              <Play className="w-24 h-24 fill-current ml-4" />
             )}
           </Button>
 
           <Button
-            variant="ghost"
-            className="h-24 w-24 rounded-full hover:bg-white/10 text-white"
+            className="h-32 w-32 rounded-full border-4 border-white bg-transparent text-white hover:bg-white hover:text-black transition-all"
             onClick={playNext}
           >
-            <SkipForward className="w-12 h-12 fill-current" />
+            <SkipForward className="w-16 h-16 fill-current" />
           </Button>
         </div>
       </div>
 
-      {/* Footer / Queue */}
-      <div className="mt-8 pt-8 border-t border-white/10">
+      {/* Footer / Queue - Next Song Highlight */}
+      <div className="mt-8 pt-8 border-t-2 border-gray-800">
         <div className="flex justify-between items-end">
-          <div className="space-y-2">
-            <p className="text-sm font-bold uppercase tracking-widest text-white/40">
-              A Seguir
+          <div className="space-y-4 w-full">
+            <p className="text-xl font-black uppercase tracking-widest text-gray-500">
+              PRÓXIMA FAIXA
             </p>
             {nextTrack ? (
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-white/10 rounded flex items-center justify-center">
-                  <span className="text-xl">🎵</span>
+              <div className="flex items-center gap-6 bg-gray-900/50 p-6 rounded-2xl border border-gray-700">
+                <div className="h-20 w-20 bg-gray-800 rounded-xl flex items-center justify-center border border-gray-600">
+                  <span className="text-4xl">🎵</span>
                 </div>
                 <div>
-                  <p className="text-xl font-semibold">{nextTrack.title}</p>
-                  <p className="text-white/60">{nextTrack.composer}</p>
+                  <p className="text-4xl font-bold text-white mb-2">
+                    {nextTrack.title}
+                  </p>
+                  <p className="text-2xl text-gray-400">{nextTrack.composer}</p>
+                </div>
+                <div className="ml-auto">
+                  <span className="text-2xl font-mono text-gray-500">
+                    {nextTrack.duration}
+                  </span>
                 </div>
               </div>
             ) : (
-              <p className="text-xl text-white/40 italic">Fim da fila</p>
+              <p className="text-3xl text-gray-600 italic font-bold">
+                -- Fim da fila --
+              </p>
             )}
           </div>
         </div>
