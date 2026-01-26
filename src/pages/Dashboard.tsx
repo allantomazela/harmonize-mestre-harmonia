@@ -1,0 +1,233 @@
+import { Link } from 'react-router-dom'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import {
+  Play,
+  Plus,
+  Upload,
+  Wifi,
+  Music,
+  Calendar as CalendarIcon,
+} from 'lucide-react'
+import { upcomingEvents, chartData, playlists } from '@/lib/mock-data'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { useState } from 'react'
+
+export default function Dashboard() {
+  const [offlineMode, setOfflineMode] = useState(false)
+  const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+
+  const chartConfig = {
+    opening: { label: 'Abertura', color: 'hsl(var(--chart-1))' },
+    elevation: { label: 'Elevação', color: 'hsl(var(--chart-2))' },
+    closing: { label: 'Encerramento', color: 'hsl(var(--chart-3))' },
+    other: { label: 'Outros', color: 'hsl(var(--chart-4))' },
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-primary">
+            Painel de Controle
+          </h1>
+          <p className="text-muted-foreground capitalize">{currentDate}</p>
+        </div>
+        <div className="flex gap-3">
+          <Link to="/library">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="w-4 h-4 mr-2" /> Adicionar Música
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Welcome & Stats */}
+        <Card className="col-span-1 md:col-span-2 lg:col-span-2 border-border shadow-sm">
+          <CardHeader>
+            <CardTitle>Acervo Musical</CardTitle>
+            <CardDescription>Distribuição por Ritual</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[200px]">
+            <ChartContainer config={chartConfig} className="h-full w-full">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.fill}
+                      strokeWidth={0}
+                    />
+                  ))}
+                </Pie>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+              </PieChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Sync Status */}
+        <Card className="col-span-1 border-border shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="w-5 h-5 text-primary" /> Sincronização
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Modo Offline</span>
+              <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Armazenamento Local</span>
+                <span>245MB / 500MB</span>
+              </div>
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full bg-primary w-[45%]" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="col-span-1 border-border shadow-sm bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle>Ações Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start hover:border-primary"
+            >
+              <Music className="w-4 h-4 mr-2" /> Nova Playlist
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start hover:border-primary"
+            >
+              <Play className="w-4 h-4 mr-2" /> Abrir Player
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start hover:border-primary"
+            >
+              <Upload className="w-4 h-4 mr-2" /> Importar Arquivo
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Playlists */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">Playlists Recentes</h2>
+          <Button variant="link" className="text-primary">
+            Ver todas
+          </Button>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+          {playlists.map((playlist) => (
+            <Link
+              to={`/library/${playlist.id}`}
+              key={playlist.id}
+              className="snap-start"
+            >
+              <Card className="w-[200px] flex-shrink-0 hover:scale-[1.02] transition-transform duration-200 cursor-pointer border-border">
+                <div className="aspect-square w-full relative overflow-hidden rounded-t-lg bg-secondary">
+                  <img
+                    src={playlist.cover}
+                    alt={playlist.title}
+                    className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40">
+                    <Play className="w-10 h-10 text-white fill-current" />
+                  </div>
+                </div>
+                <div className="p-3">
+                  <h3
+                    className="font-semibold text-sm truncate"
+                    title={playlist.title}
+                  >
+                    {playlist.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {playlist.tracks} faixas • {playlist.duration}
+                  </p>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Upcoming Events */}
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-primary" /> Próximas Sessões
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {upcomingEvents.map((event) => (
+              <div
+                key={event.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50 hover:border-primary/50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-primary/10 text-primary p-2 rounded-md font-bold text-center w-14">
+                    <span className="text-xs block uppercase">
+                      {event.date.split(' ')[1]}
+                    </span>
+                    <span className="text-lg block">
+                      {event.date.split(' ')[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">{event.title}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {event.date.split(',')[1]}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="capitalize">
+                  {event.type}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

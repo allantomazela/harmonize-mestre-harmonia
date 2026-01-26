@@ -1,0 +1,107 @@
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+import { Bell, Wifi, WifiOff, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
+
+export function TopHeader() {
+  const [isOnline, setIsOnline] = useState(true)
+  const location = useLocation()
+
+  useEffect(() => {
+    // Simple mock online/offline detection
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const getBreadcrumbs = () => {
+    const path = location.pathname
+    const parts = path.split('/').filter(Boolean)
+
+    // Manual mapping for demo
+    const map: Record<string, string> = {
+      dashboard: 'Painel',
+      library: 'Acervo Musical',
+      playlists: 'Playlists',
+      settings: 'Configurações',
+    }
+
+    return parts.map((part, index) => {
+      const label = map[part] || part.charAt(0).toUpperCase() + part.slice(1)
+      return (
+        <span key={part} className="flex items-center">
+          {index > 0 && (
+            <ChevronRight className="w-4 h-4 mx-1 text-muted-foreground" />
+          )}
+          <span
+            className={
+              index === parts.length - 1
+                ? 'text-foreground font-medium'
+                : 'text-muted-foreground'
+            }
+          >
+            {label}
+          </span>
+        </span>
+      )
+    })
+  }
+
+  return (
+    <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-6 sticky top-0 z-20">
+      <div className="flex items-center text-sm">
+        <span className="text-muted-foreground mr-2 hidden sm:inline">
+          Harmonize
+        </span>
+        <ChevronRight className="w-4 h-4 mx-1 text-muted-foreground hidden sm:inline" />
+        {getBreadcrumbs()}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/20 cursor-help">
+                {isOnline ? (
+                  <>
+                    <Wifi className="w-4 h-4 text-green-500" />
+                    <span className="text-xs font-medium text-green-500 hidden sm:inline">
+                      Sincronizado
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4 text-yellow-500 animate-pulse" />
+                    <span className="text-xs font-medium text-yellow-500 hidden sm:inline">
+                      Modo Offline
+                    </span>
+                  </>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isOnline ? 'Conectado à nuvem' : 'Operando localmente'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="w-5 h-5 text-muted-foreground" />
+          <Badge className="absolute top-1 right-1 w-2 h-2 p-0 bg-primary border-none" />
+        </Button>
+      </div>
+    </header>
+  )
+}

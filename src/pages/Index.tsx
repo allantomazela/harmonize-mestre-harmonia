@@ -1,10 +1,22 @@
-/* Home Page - Replace this page layout, components, content, behavior with what you want and translate to the language of the user */
+/* Redirect Page - Handles initial navigation logic */
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+
 const Index = () => {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    // In a real app, check auth token here.
+    // For demo, redirect to login.
+    navigate('/login')
+  }, [navigate])
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-6">
-        This is a example page ready to be rewritten with your own content
-      </h1>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-pulse flex flex-col items-center">
+        <div className="w-12 h-12 bg-primary rounded-full mb-4"></div>
+        <p className="text-muted-foreground">Carregando Harmonize...</p>
+      </div>
     </div>
   )
 }
