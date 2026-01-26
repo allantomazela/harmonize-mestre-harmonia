@@ -15,7 +15,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell } from 'recharts'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -25,14 +25,19 @@ import {
   Wifi,
   Music,
   Calendar as CalendarIcon,
+  CheckCircle2,
+  DownloadCloud,
 } from 'lucide-react'
 import { upcomingEvents, chartData, playlists } from '@/lib/mock-data'
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { Progress } from '@/components/ui/progress'
 
 export default function Dashboard() {
   const [offlineMode, setOfflineMode] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const { toast } = useToast()
   const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
 
   const chartConfig = {
@@ -40,6 +45,18 @@ export default function Dashboard() {
     elevation: { label: 'Elevação', color: 'hsl(var(--chart-2))' },
     closing: { label: 'Encerramento', color: 'hsl(var(--chart-3))' },
     other: { label: 'Outros', color: 'hsl(var(--chart-4))' },
+  }
+
+  const handleVerifySync = () => {
+    setIsVerifying(true)
+    setTimeout(() => {
+      setIsVerifying(false)
+      toast({
+        title: 'Verificação Concluída',
+        description:
+          'Todos os arquivos necessários para a próxima sessão estão disponíveis.',
+      })
+    }, 2000)
   }
 
   return (
@@ -95,7 +112,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Sync Status */}
+        {/* Sync Status - Enhanced */}
         <Card className="col-span-1 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2">
@@ -104,18 +121,35 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm">Modo Offline</span>
+              <span className="text-sm font-medium">Modo Offline</span>
               <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Armazenamento Local</span>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="flex justify-between text-xs font-medium">
+                <span>Armazenamento</span>
                 <span>245MB / 500MB</span>
               </div>
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary w-[45%]" />
-              </div>
+              <Progress value={49} className="h-2" />
+              <p className="text-xs text-muted-foreground pt-1">
+                45 faixas baixadas • 3 pendentes
+              </p>
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs"
+              onClick={handleVerifySync}
+              disabled={isVerifying}
+            >
+              {isVerifying ? (
+                <CheckCircle2 className="w-3 h-3 mr-2 animate-spin" />
+              ) : (
+                <DownloadCloud className="w-3 h-3 mr-2" />
+              )}
+              {isVerifying ? 'Verificando...' : 'Verificar para Sessão'}
+            </Button>
           </CardContent>
         </Card>
 
@@ -125,18 +159,22 @@ export default function Dashboard() {
             <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <Button
-              variant="outline"
-              className="w-full justify-start hover:border-primary"
-            >
-              <Music className="w-4 h-4 mr-2" /> Nova Playlist
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start hover:border-primary"
-            >
-              <Play className="w-4 h-4 mr-2" /> Abrir Player
-            </Button>
+            <Link to="/playlists">
+              <Button
+                variant="outline"
+                className="w-full justify-start hover:border-primary"
+              >
+                <Music className="w-4 h-4 mr-2" /> Nova Playlist
+              </Button>
+            </Link>
+            <Link to="/player">
+              <Button
+                variant="outline"
+                className="w-full justify-start hover:border-primary"
+              >
+                <Play className="w-4 h-4 mr-2" /> Abrir Player
+              </Button>
+            </Link>
             <Button
               variant="outline"
               className="w-full justify-start hover:border-primary"
@@ -158,7 +196,7 @@ export default function Dashboard() {
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
           {playlists.map((playlist) => (
             <Link
-              to={`/library/${playlist.id}`}
+              to={`/playlists/${playlist.id}`}
               key={playlist.id}
               className="snap-start"
             >

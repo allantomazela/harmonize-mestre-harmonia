@@ -12,6 +12,9 @@ import ForgotPassword from './pages/ForgotPassword'
 import Dashboard from './pages/Dashboard'
 import Library from './pages/Library'
 import MusicDetails from './pages/MusicDetails'
+import PlaylistDetails from './pages/PlaylistDetails'
+import Player from './pages/Player'
+import Settings from './pages/Settings'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
 // AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)
@@ -32,10 +35,11 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/library" element={<Library />} />
           <Route path="/library/:id" element={<MusicDetails />} />
-          {/* Fallback for mocked routes */}
           <Route path="/playlists" element={<Dashboard />} />
+          <Route path="/playlists/:id" element={<PlaylistDetails />} />
+          <Route path="/player" element={<Player />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/calendar" element={<Dashboard />} />
-          <Route path="/settings" element={<Dashboard />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

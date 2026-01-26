@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Music, Eye, EyeOff } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Loader2, Music, Eye, EyeOff, Info } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export default function Login() {
@@ -27,20 +28,19 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
 
-    // Mock login delay and validation
     setTimeout(() => {
       setLoading(false)
-      if (email && password) {
+      // Allow demo credentials or non-empty inputs
+      if (
+        (email === 'admin@harmonize.com' && password === 'harmonize123') ||
+        (email && password)
+      ) {
         toast({
           title: 'Bem-vindo, Mestre de Harmonia',
           description: 'Login realizado com sucesso.',
         })
         navigate('/dashboard')
       } else {
-        const form = document.getElementById('login-card')
-        form?.classList.add('animate-shake') // Assuming custom shake animation or use generic error
-        setTimeout(() => form?.classList.remove('animate-shake'), 500)
-
         toast({
           variant: 'destructive',
           title: 'Erro de Autenticação',
@@ -67,6 +67,14 @@ export default function Login() {
         <CardDescription>Gestão Musical para Lojas Maçônicas</CardDescription>
       </CardHeader>
       <CardContent>
+        <Alert className="mb-4 bg-secondary/20 border-secondary text-xs">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Acesso de Demonstração</AlertTitle>
+          <AlertDescription>
+            Use <strong>admin@harmonize.com</strong> e senha{' '}
+            <strong>harmonize123</strong> para testar.
+          </AlertDescription>
+        </Alert>
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
