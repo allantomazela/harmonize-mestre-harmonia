@@ -36,9 +36,10 @@ import { EditTrackDialog } from '@/components/library/edit-track-dialog'
 
 export default function Library() {
   const {
-    queue,
+    library,
     folders,
     refreshLibrary,
+    replaceQueue,
     skipToIndex,
     createFolder,
     removeFolder,
@@ -52,8 +53,8 @@ export default function Library() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // Filter queue
-  const libraryTracks = queue.filter((track) => {
+  // Filter tracks from Library (not queue)
+  const libraryTracks = library.filter((track) => {
     const matchesSearch =
       track.title.toLowerCase().includes(search.toLowerCase()) ||
       track.composer.toLowerCase().includes(search.toLowerCase())
@@ -158,7 +159,7 @@ export default function Library() {
 
   const handleMoveToFolder = async (folderId: string | undefined) => {
     for (const id of selectedItems) {
-      const track = queue.find((t) => t.id === id)
+      const track = library.find((t) => t.id === id)
       if (track && track.isLocal) {
         await updateTrack({ ...track, folderId })
       }
@@ -168,6 +169,19 @@ export default function Library() {
       description: `${selectedItems.length} arquivos movidos com sucesso.`,
     })
     setSelectedItems([])
+  }
+
+  const handlePlayContext = (startIndex: number = 0) => {
+    // Replaces queue with current visible tracks and starts playing from startIndex
+    if (libraryTracks.length > 0) {
+      replaceQueue(libraryTracks)
+      // We need a small timeout or state effect to play after queue update,
+      // but skipToIndex in our context implementation accesses current state of queue inside callback
+      // if using functional update or we rely on the fact that replaceQueue updates state.
+      // However, skipToIndex usually relies on index.
+      // To ensure sync, we call skipToIndex immediately.
+      setTimeout(() => skipToIndex(startIndex), 0)
+    }
   }
 
   return (
@@ -193,13 +207,23 @@ export default function Library() {
             </p>
           </div>
 
-          <div className="flex gap-2 w-full md:w-auto items-center">
+          <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
+            {currentFolderId && (
+              <Button
+                onClick={() => handlePlayContext(0)}
+                variant="secondary"
+                className="mr-2"
+              >
+                <Play className="w-4 h-4 mr-2" /> Tocar Pasta
+              </Button>
+            )}
+
             <input
               type="file"
               ref={fileInputRef}
               className="hidden"
               multiple
-              accept="audio/*"
+              accept=".mp3,audio/mpeg,audio/wav,.wav,audio/ogg,.ogg,audio/flac,.flac,audio/x-m4a,.m4a"
               onChange={handleFileChange}
             />
             <Button onClick={handleImportClick} className="shadow-sm">
@@ -297,7 +321,7 @@ export default function Library() {
                 <div className="col-span-1"></div>
               </div>
               {libraryTracks.length > 0 ? (
-                libraryTracks.map((track) => (
+                libraryTracks.map((track, idx) => (
                   <div
                     key={track.id}
                     className={cn(
@@ -313,7 +337,10 @@ export default function Library() {
                     </div>
                     <div className="col-span-5 md:col-span-4 font-medium flex flex-col">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-secondary/20 rounded-md">
+                        <div
+                          className="p-2 bg-secondary/20 rounded-md cursor-pointer hover:bg-primary/20"
+                          onClick={() => handlePlayContext(idx)}
+                        >
                           <FileAudio className="w-4 h-4 text-primary" />
                         </div>
                         <Link
@@ -344,12 +371,7 @@ export default function Library() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => {
-                              const idx = queue.findIndex(
-                                (t) => t.id === track.id,
-                              )
-                              if (idx !== -1) skipToIndex(idx)
-                            }}
+                            onClick={() => handlePlayContext(idx)}
                           >
                             <Play className="w-4 h-4 mr-2" /> Reproduzir
                           </DropdownMenuItem>
@@ -421,7 +443,7 @@ export default function Library() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
-              {libraryTracks.map((track) => (
+              {libraryTracks.map((track, idx) => (
                 <Card
                   key={track.id}
                   className={cn(
@@ -450,10 +472,7 @@ export default function Library() {
                       <Button
                         size="icon"
                         className="rounded-full bg-primary text-primary-foreground"
-                        onClick={() => {
-                          const idx = queue.findIndex((t) => t.id === track.id)
-                          if (idx !== -1) skipToIndex(idx)
-                        }}
+                        onClick={() => handlePlayContext(idx)}
                       >
                         <Play className="w-5 h-5 ml-1" />
                       </Button>

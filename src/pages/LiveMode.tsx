@@ -60,6 +60,8 @@ export default function LiveMode() {
     return () => document.removeEventListener('fullscreenchange', handleEsc)
   }, [])
 
+  const remainingTime = duration - currentTime
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col p-6 animate-in fade-in duration-500 font-sans">
       {/* Header */}
@@ -91,9 +93,9 @@ export default function LiveMode() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-12 max-w-6xl mx-auto w-full">
+      <div className="flex-1 flex flex-col justify-center items-center gap-8 max-w-6xl mx-auto w-full">
         {/* Track Info - High Contrast */}
-        <div className="text-center space-y-6">
+        <div className="text-center space-y-4">
           {currentTrack ? (
             <>
               <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-none text-white drop-shadow-lg">
@@ -102,7 +104,7 @@ export default function LiveMode() {
               <p className="text-3xl md:text-5xl text-yellow-400 font-bold font-serif">
                 {currentTrack.composer}
               </p>
-              <div className="flex justify-center gap-4 mt-6">
+              <div className="flex justify-center flex-wrap gap-4 mt-6">
                 {currentTrack.ritual && (
                   <span className="px-6 py-2 bg-blue-600 text-white rounded-full text-xl font-bold border-2 border-blue-400 uppercase">
                     {currentTrack.ritual}
@@ -113,6 +115,14 @@ export default function LiveMode() {
                     {currentTrack.degree}
                   </span>
                 )}
+                <div className="flex gap-4">
+                  <span className="px-6 py-2 bg-purple-900 text-white rounded-full text-xl font-bold border-2 border-purple-500 uppercase font-mono">
+                    {currentTrack.bpm ? `${currentTrack.bpm} BPM` : '-- BPM'}
+                  </span>
+                  <span className="px-6 py-2 bg-green-900 text-white rounded-full text-xl font-bold border-2 border-green-500 uppercase font-mono">
+                    KEY: {currentTrack.tone || '--'}
+                  </span>
+                </div>
               </div>
             </>
           ) : (
@@ -125,16 +135,16 @@ export default function LiveMode() {
 
         {/* Progress - Large and Visible */}
         <div className="w-full space-y-4 px-12">
-          <div className="relative h-6 w-full bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+          <div className="relative h-10 w-full bg-gray-800 rounded-full overflow-hidden border-2 border-gray-500">
             <div
               className="absolute top-0 left-0 h-full bg-yellow-500 transition-all duration-100 ease-linear"
               style={{ width: `${(currentTime / duration) * 100}%` }}
             />
           </div>
-          <div className="flex justify-between text-3xl font-mono font-bold text-white">
+          <div className="flex justify-between text-4xl font-mono font-bold text-white">
             <span>{formatTime(currentTime)}</span>
-            <span className="text-gray-400">
-              -{formatTime((duration || 0) - currentTime)}
+            <span className="text-red-400 animate-pulse">
+              -{formatTime(remainingTime)}
             </span>
           </div>
           {/* Slider hidden but interactive for seeking if needed, or rely on visual bar */}

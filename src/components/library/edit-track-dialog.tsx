@@ -52,7 +52,7 @@ export function EditTrackDialog({
         <DialogHeader>
           <DialogTitle>Editar Metadados</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
               Título
@@ -129,6 +129,21 @@ export function EditTrackDialog({
                 setFormData({ ...formData, bpm: e.target.value })
               }
               className="col-span-3"
+              placeholder="Ex: 120"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="tone" className="text-right">
+              Tom / Key
+            </Label>
+            <Input
+              id="tone"
+              value={formData.tone || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, tone: e.target.value })
+              }
+              className="col-span-3"
+              placeholder="Ex: C Major"
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">

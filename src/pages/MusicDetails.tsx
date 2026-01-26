@@ -30,12 +30,12 @@ export default function MusicDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { queue, updateTrack, refreshLibrary } = useAudioPlayer()
+  const { library, updateTrack, refreshLibrary } = useAudioPlayer()
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  // Find track in context queue
-  const track = queue.find((m) => m.id === id)
+  // Find track in library (all tracks) instead of queue
+  const track = library.find((m) => m.id === id)
 
   const [formData, setFormData] = useState<any>({})
 
@@ -51,6 +51,7 @@ export default function MusicDetails() {
         bpm: track.bpm,
         year: track.year,
         album: track.album,
+        tone: track.tone,
       })
     }
   }, [track])
@@ -222,6 +223,30 @@ export default function MusicDetails() {
                     disabled={!track.isLocal}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bpm">BPM</Label>
+                  <Input
+                    id="bpm"
+                    value={formData.bpm || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bpm: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                    placeholder="Ex: 120"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tone">Tom / Key</Label>
+                  <Input
+                    id="tone"
+                    value={formData.tone || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tone: e.target.value })
+                    }
+                    disabled={!track.isLocal}
+                    placeholder="Ex: C Major"
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="degree">Grau</Label>
@@ -262,26 +287,6 @@ export default function MusicDetails() {
                       <SelectItem value="Exaltação">Exaltação</SelectItem>
                       <SelectItem value="Encerramento">Encerramento</SelectItem>
                       <SelectItem value="Geral">Geral</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="occasion">Ocasião</Label>
-                  <Select
-                    value={formData.occasion}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, occasion: v })
-                    }
-                    disabled={!track.isLocal}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Regular">Sessão Regular</SelectItem>
-                      <SelectItem value="Solenidade">Solenidade</SelectItem>
-                      <SelectItem value="Magna">Sessão Magna</SelectItem>
-                      <SelectItem value="Festiva">Festiva/Banquete</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

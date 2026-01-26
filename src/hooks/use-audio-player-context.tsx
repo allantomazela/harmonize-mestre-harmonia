@@ -45,6 +45,7 @@ interface AudioPlayerContextType {
   isPlaying: boolean
   currentTrack: Track | undefined
   queue: Track[]
+  library: Track[]
   folders: Folder[]
   currentIndex: number
   currentTime: number
@@ -65,6 +66,7 @@ interface AudioPlayerContextType {
   reorderQueue: (from: number, to: number) => void
   skipToIndex: (index: number) => void
   addToQueue: (tracks: Track[]) => void
+  replaceQueue: (tracks: Track[]) => void
   refreshLibrary: () => Promise<void>
   createFolder: (name: string) => Promise<void>
   removeFolder: (id: string) => Promise<void>
@@ -78,6 +80,7 @@ const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [queue, setQueue] = useState<Track[]>([])
+  const [library, setLibrary] = useState<Track[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -118,11 +121,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         year: lt.year,
       }))
 
-      setQueue([...musicLibrary, ...formattedLocalTracks])
+      const allTracks = [...musicLibrary, ...formattedLocalTracks]
+      setLibrary(allTracks)
       setFolders(loadedFolders)
+
+      // Initialize queue if empty
+      setQueue((prev) => (prev.length === 0 ? allTracks : prev))
     } catch (error) {
       console.error('Failed to load library', error)
-      setQueue(musicLibrary)
+      setLibrary(musicLibrary)
+      setQueue((prev) => (prev.length === 0 ? musicLibrary : prev))
     }
   }, [])
 
@@ -142,9 +150,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const removeFolder = async (id: string) => {
     await deleteFolder(id)
-    // Optional: Move tracks out of folder or delete them.
-    // Default implementation: Keep tracks, just clear folderId
-    const tracksToUpdate = queue.filter((t) => t.folderId === id && t.isLocal)
+    const tracksToUpdate = library.filter((t) => t.folderId === id && t.isLocal)
     for (const t of tracksToUpdate) {
       await updateTrack({ ...t, folderId: undefined })
     }
@@ -154,7 +160,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const updateTrack = async (updatedTrack: Track) => {
     if (!updatedTrack.isLocal || !updatedTrack.file) return
 
-    // Convert Track to LocalTrack
     const localTrack: LocalTrack = {
       id: updatedTrack.id,
       title: updatedTrack.title,
@@ -162,7 +167,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       album: updatedTrack.album,
       duration: updatedTrack.duration,
       file: updatedTrack.file,
-      addedAt: Date.now(), // Keeps original addedAt ideally, but for now updates
+      addedAt: Date.now(),
       degree: updatedTrack.degree,
       ritual: updatedTrack.ritual,
       folderId: updatedTrack.folderId,
@@ -179,7 +184,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const currentTrack = queue[currentIndex]
 
-  // Initialize Audio Element
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
@@ -238,7 +242,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Sync Volume
   useEffect(() => {
     if (audioRef.current && !fadeIntervalRef.current) {
       audioRef.current.volume = Math.max(0, Math.min(1, volume))
@@ -307,7 +310,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       const steps = 60
       const durationMs = duration * 1000
       const stepTime = durationMs / steps
-
       let currentStep = 0
 
       fadeIntervalRef.current = setInterval(() => {
@@ -463,7 +465,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         } else if (from > currentIndex && to <= currentIndex) {
           setCurrentIndex(currentIndex + 1)
         }
-
         return newQueue
       })
     },
@@ -472,12 +473,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const skipToIndex = useCallback(
     (index: number) => {
-      if (index >= 0 && index < queue.length) {
-        setCurrentIndex(index)
-        loadAndPlay(queue[index])
-      }
+      setQueue((currentQueue) => {
+        if (index >= 0 && index < currentQueue.length) {
+          setCurrentIndex(index)
+          loadAndPlay(currentQueue[index])
+        }
+        return currentQueue
+      })
     },
-    [queue, loadAndPlay],
+    [loadAndPlay],
   )
 
   const addToQueue = useCallback((tracks: Track[]) => {
@@ -488,12 +492,19 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const replaceQueue = useCallback((tracks: Track[]) => {
+    setQueue(tracks)
+    setCurrentIndex(0)
+    // Don't auto play, let user action trigger or caller trigger skipToIndex
+  }, [])
+
   return (
     <AudioPlayerContext.Provider
       value={{
         isPlaying,
         currentTrack,
         queue,
+        library,
         folders,
         currentIndex,
         currentTime,
@@ -514,6 +525,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         reorderQueue,
         skipToIndex,
         addToQueue,
+        replaceQueue,
         refreshLibrary,
         createFolder,
         removeFolder,

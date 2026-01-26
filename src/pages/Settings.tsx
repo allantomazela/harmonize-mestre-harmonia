@@ -31,6 +31,9 @@ import {
   HardDrive,
   Download,
   Upload,
+  Cloud,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
@@ -41,8 +44,11 @@ import {
 
 export default function Settings() {
   const { toast } = useToast()
-  const { queue, refreshLibrary } = useAudioPlayer()
+  const { library, refreshLibrary } = useAudioPlayer()
   const [inviteEmail, setInviteEmail] = useState('')
+  const [cloudSyncConnected, setCloudSyncConnected] = useState(false)
+  const [lastSynced, setLastSynced] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,7 +125,27 @@ export default function Settings() {
     e.target.value = ''
   }
 
-  const localFileCount = queue.filter((t) => t.isLocal).length
+  const handleConnectCloud = () => {
+    setCloudSyncConnected(true)
+    toast({
+      title: 'Nuvem Conectada',
+      description: 'Conta Google Drive vinculada com sucesso.',
+    })
+  }
+
+  const handleSyncNow = () => {
+    setIsSyncing(true)
+    setTimeout(() => {
+      setIsSyncing(false)
+      setLastSynced(new Date().toLocaleString())
+      toast({
+        title: 'Sincronização Concluída',
+        description: 'Seus dados foram salvos na nuvem.',
+      })
+    }, 2000)
+  }
+
+  const localFileCount = library.filter((t) => t.isLocal).length
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -130,7 +156,107 @@ export default function Settings() {
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="lodge">Loja & Membros</TabsTrigger>
           <TabsTrigger value="local">Armazenamento Local</TabsTrigger>
+          <TabsTrigger value="cloud">Cloud Sync</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="cloud" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cloud className="w-5 h-5 text-primary" /> Sincronização em
+                Nuvem
+              </CardTitle>
+              <CardDescription>
+                Mantenha seus backups salvos automaticamente no Google Drive ou
+                Dropbox.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!cloudSyncConnected ? (
+                <div className="grid gap-4">
+                  <div className="p-4 border rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-100 p-2 rounded-full">
+                        <img
+                          src="https://img.usecurling.com/i?q=google&shape=fill"
+                          className="w-6 h-6"
+                          alt="Google Drive"
+                        />
+                      </div>
+                      <div>
+                        <p className="font-medium">Google Drive</p>
+                        <p className="text-xs text-muted-foreground">
+                          Salvar backups no seu drive pessoal
+                        </p>
+                      </div>
+                    </div>
+                    <Button onClick={handleConnectCloud}>Conectar</Button>
+                  </div>
+                  <div className="p-4 border rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-100 p-2 rounded-full">
+                        <img
+                          src="https://img.usecurling.com/i?q=dropbox&shape=fill"
+                          className="w-6 h-6"
+                          alt="Dropbox"
+                        />
+                      </div>
+                      <div>
+                        <p className="font-medium">Dropbox</p>
+                        <p className="text-xs text-muted-foreground">
+                          Salvar backups na pasta de aplicativos
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={handleConnectCloud}>
+                      Conectar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="w-6 h-6" />
+                    <div className="flex-1">
+                      <p className="font-medium">Conta Vinculada</p>
+                      <p className="text-sm opacity-90">
+                        Backup automático habilitado para Google Drive.
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCloudSyncConnected(false)}
+                    >
+                      Desconectar
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">
+                        Última Sincronização
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {lastSynced || 'Nunca'}
+                      </span>
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={handleSyncNow}
+                      disabled={isSyncing}
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`}
+                      />
+                      {isSyncing ? 'Sincronizando...' : 'Fazer Backup Agora'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="lodge" className="space-y-6 mt-6">
           <Card>

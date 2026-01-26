@@ -10,7 +10,14 @@ import {
 } from '@/components/ui/popover'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import { Settings2, Music, MonitorPlay, Activity } from 'lucide-react'
+import {
+  Settings2,
+  Music,
+  MonitorPlay,
+  Activity,
+  Gauge,
+  Timer,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Link } from 'react-router-dom'
 import {
@@ -45,6 +52,14 @@ export default function Player() {
     reorderQueue,
     skipToIndex,
   } = useAudioPlayer()
+
+  const remainingTime = duration - currentTime
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in">
@@ -149,6 +164,36 @@ export default function Player() {
             </Popover>
           </div>
         </div>
+
+        {/* Technical Data Display */}
+        {currentTrack && (
+          <div className="grid grid-cols-3 gap-2 bg-secondary/10 p-2 rounded-lg border border-border/50 text-center">
+            <div className="flex flex-col items-center justify-center p-2">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
+                <Gauge className="w-3 h-3" /> BPM
+              </span>
+              <span className="text-lg font-mono font-bold">
+                {currentTrack.bpm || '--'}
+              </span>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2 border-l border-r border-border/50">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
+                <Music className="w-3 h-3" /> KEY
+              </span>
+              <span className="text-lg font-mono font-bold">
+                {currentTrack.tone || '--'}
+              </span>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
+                <Timer className="w-3 h-3" /> Restante
+              </span>
+              <span className="text-lg font-mono font-bold text-primary">
+                {formatTime(remainingTime)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Info & Cover */}
         <TrackInfo track={currentTrack} isLoading={isLoading} />
