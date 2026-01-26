@@ -10,6 +10,9 @@ export const musicLibrary = [
     occasion: 'Solenidade',
     isDownloaded: true,
     isFavorite: true,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    cover:
+      'https://img.usecurling.com/p/400/400?q=classical%20music&color=black',
   },
   {
     id: '2',
@@ -21,6 +24,8 @@ export const musicLibrary = [
     occasion: 'Regular',
     isDownloaded: true,
     isFavorite: false,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+    cover: 'https://img.usecurling.com/p/400/400?q=orchestra&color=black',
   },
   {
     id: '3',
@@ -32,6 +37,8 @@ export const musicLibrary = [
     occasion: 'Magna',
     isDownloaded: false,
     isFavorite: true,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+    cover: 'https://img.usecurling.com/p/400/400?q=piano&color=black',
   },
   {
     id: '4',
@@ -43,6 +50,8 @@ export const musicLibrary = [
     occasion: 'Regular',
     isDownloaded: true,
     isFavorite: false,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    cover: 'https://img.usecurling.com/p/400/400?q=violin&color=black',
   },
   {
     id: '5',
@@ -54,6 +63,8 @@ export const musicLibrary = [
     occasion: 'Festiva',
     isDownloaded: false,
     isFavorite: false,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    cover: 'https://img.usecurling.com/p/400/400?q=harp&color=black',
   },
 ]
 

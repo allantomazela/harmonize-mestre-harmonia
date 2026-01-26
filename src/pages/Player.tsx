@@ -1,155 +1,117 @@
-import { useState } from 'react'
+import { useAudioPlayer } from '@/hooks/use-audio-player'
+import { TrackInfo } from '@/components/player/track-info'
+import { PlayerControls } from '@/components/player/player-controls'
+import { QueueList } from '@/components/player/queue-list'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
-import { musicLibrary } from '@/lib/mock-data'
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  Repeat,
-  Shuffle,
-  Mic2,
-  Settings2,
-} from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Label } from '@/components/ui/label'
+import { Slider } from '@/components/ui/slider'
+import { Settings2, Music } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 export default function Player() {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(30)
-  const [crossfade, setCrossfade] = useState(2)
-  const track = musicLibrary[0]
+  const {
+    isPlaying,
+    currentTrack,
+    queue,
+    currentIndex,
+    currentTime,
+    duration,
+    volume,
+    fadeDuration,
+    togglePlay,
+    playNext,
+    playPrev,
+    seek,
+    setVolume,
+    setFadeDuration,
+    reorderQueue,
+    skipToIndex,
+  } = useAudioPlayer()
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 max-w-lg mx-auto w-full space-y-8 animate-fade-in">
-      <div className="w-full aspect-square bg-secondary rounded-2xl shadow-2xl overflow-hidden relative group">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="flex items-center justify-center h-full text-9xl">
-          🎵
-        </div>
-      </div>
-
-      <div className="w-full space-y-2 text-center">
-        <h1 className="text-2xl font-bold text-primary">{track.title}</h1>
-        <p className="text-muted-foreground text-lg">{track.composer}</p>
-      </div>
-
-      <div className="w-full space-y-4">
-        <Slider
-          value={[progress]}
-          max={100}
-          step={1}
-          className="w-full"
-          onValueChange={(v) => setProgress(v[0])}
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>1:15</span>
-          <span>{track.duration}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between w-full gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Shuffle className="w-5 h-5" />
-        </Button>
-
-        <div className="flex items-center gap-6">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full border-2"
-          >
-            <SkipBack className="w-6 h-6 fill-current" />
-          </Button>
-
-          <Button
-            className="h-16 w-16 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl scale-110"
-            onClick={() => setIsPlaying(!isPlaying)}
-          >
-            {isPlaying ? (
-              <Pause className="w-8 h-8 fill-current" />
-            ) : (
-              <Play className="w-8 h-8 fill-current ml-1" />
-            )}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full border-2"
-          >
-            <SkipForward className="w-6 h-6 fill-current" />
-          </Button>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Repeat className="w-5 h-5" />
-        </Button>
-      </div>
-
-      <div className="w-full grid grid-cols-2 gap-4 pt-8">
-        <Card className="bg-card/50 border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Volume2 className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Volume</span>
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in">
+      {/* Left Column: Player Main */}
+      <div className="flex-1 flex flex-col justify-center space-y-8 max-w-2xl mx-auto w-full">
+        {/* Header / Meta */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Music className="w-5 h-5 text-primary" />
             </div>
-            <Slider defaultValue={[80]} max={100} step={1} className="w-20" />
-          </CardContent>
-        </Card>
+            <div>
+              <h1 className="text-lg font-bold leading-tight">Player Ritual</h1>
+              <p className="text-xs text-muted-foreground">Sessão Ativa</p>
+            </div>
+          </div>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Card className="bg-card/50 border-border cursor-pointer hover:border-primary/50 transition-colors">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Settings2 className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Crossfade</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {crossfade}s
-                </span>
-              </CardContent>
-            </Card>
-          </PopoverTrigger>
-          <PopoverContent className="w-60">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Duração do Crossfade</Label>
-                <Slider
-                  value={[crossfade]}
-                  min={0}
-                  max={10}
-                  step={1}
-                  onValueChange={(v) => setCrossfade(v[0])}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0s</span>
-                  <span>{crossfade}s</span>
-                  <span>10s</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Transição</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] h-5">
+                  {fadeDuration}s
+                </Badge>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Duração do Fade</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {fadeDuration}s
+                    </span>
+                  </div>
+                  <Slider
+                    value={[fadeDuration]}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    onValueChange={(v) => setFadeDuration(v[0])}
+                  />
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Controla o tempo de Fade-in ao iniciar e Fade-out ao
+                    finalizar.
+                  </p>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Suaviza a transição entre faixas rituais.
-              </p>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Info & Cover */}
+        <TrackInfo track={currentTrack} />
+
+        {/* Controls */}
+        <div className="bg-card/30 rounded-2xl p-6 border border-border/50 backdrop-blur-sm">
+          <PlayerControls
+            isPlaying={isPlaying}
+            onTogglePlay={togglePlay}
+            onNext={playNext}
+            onPrev={playPrev}
+            progress={currentTime}
+            duration={duration}
+            onSeek={seek}
+            volume={volume}
+            onVolumeChange={setVolume}
+          />
+        </div>
+      </div>
+
+      {/* Right Column: Queue */}
+      <div className="lg:w-96 w-full flex flex-col h-full overflow-hidden">
+        <QueueList
+          queue={queue}
+          currentIndex={currentIndex}
+          onReorder={reorderQueue}
+          onSkipTo={skipToIndex}
+        />
       </div>
     </div>
   )
