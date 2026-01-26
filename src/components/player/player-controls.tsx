@@ -8,11 +8,13 @@ import {
   Repeat,
   Shuffle,
   Volume2,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PlayerControlsProps {
   isPlaying: boolean
+  isLoading?: boolean
   onTogglePlay: () => void
   onNext: () => void
   onPrev: () => void
@@ -24,7 +26,7 @@ interface PlayerControlsProps {
 }
 
 function formatTime(seconds: number) {
-  if (!seconds || isNaN(seconds)) return '0:00'
+  if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00'
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
@@ -32,6 +34,7 @@ function formatTime(seconds: number) {
 
 export function PlayerControls({
   isPlaying,
+  isLoading,
   onTogglePlay,
   onNext,
   onPrev,
@@ -41,19 +44,25 @@ export function PlayerControls({
   volume,
   onVolumeChange,
 }: PlayerControlsProps) {
+  const safeProgress =
+    Number.isFinite(progress) && !Number.isNaN(progress) ? progress : 0
+  const safeDuration =
+    Number.isFinite(duration) && !Number.isNaN(duration) ? duration : 0
+
   return (
     <div className="w-full space-y-6">
       <div className="space-y-2">
         <Slider
-          value={[progress]}
-          max={duration || 100}
+          value={[safeProgress]}
+          max={safeDuration || 100}
           step={1}
           className="w-full cursor-pointer"
           onValueChange={(v) => onSeek(v[0])}
+          disabled={isLoading}
         />
         <div className="flex justify-between text-xs font-medium text-muted-foreground">
-          <span>{formatTime(progress)}</span>
-          <span>-{formatTime(duration - progress)}</span>
+          <span>{formatTime(safeProgress)}</span>
+          <span>-{formatTime(safeDuration - safeProgress)}</span>
         </div>
       </div>
 
@@ -68,6 +77,7 @@ export function PlayerControls({
             size="icon"
             className="h-12 w-12 rounded-full border-2"
             onClick={onPrev}
+            disabled={isLoading}
           >
             <SkipBack className="w-5 h-5 fill-current" />
           </Button>
@@ -80,8 +90,11 @@ export function PlayerControls({
                 : 'bg-secondary text-secondary-foreground',
             )}
             onClick={onTogglePlay}
+            disabled={isLoading}
           >
-            {isPlaying ? (
+            {isLoading ? (
+              <Loader2 className="w-8 h-8 animate-spin" />
+            ) : isPlaying ? (
               <Pause className="w-8 h-8 fill-current" />
             ) : (
               <Play className="w-8 h-8 fill-current ml-1" />
@@ -93,6 +106,7 @@ export function PlayerControls({
             size="icon"
             className="h-12 w-12 rounded-full border-2"
             onClick={onNext}
+            disabled={isLoading}
           >
             <SkipForward className="w-5 h-5 fill-current" />
           </Button>

@@ -10,6 +10,8 @@ export interface Track {
   cover?: string
   duration: string
   degree: string
+  ritual?: string
+  occasion?: string
 }
 
 export function useAudioPlayer() {
@@ -19,111 +21,158 @@ export function useAudioPlayer() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.8)
-  const [fadeDuration, setFadeDuration] = useState(3) // seconds
+  const [fadeDuration, setFadeDuration] = useState(3)
+  const [isLoading, setIsLoading] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const playPromiseRef = useRef<Promise<void> | null>(null)
 
   const currentTrack = queue[currentIndex]
 
   // Initialize Audio
   useEffect(() => {
-    audioRef.current = new Audio()
+    if (!audioRef.current) {
+      audioRef.current = new Audio()
+      audioRef.current.preload = 'metadata'
+    }
     const audio = audioRef.current
 
-    const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => setDuration(audio.duration)
-    const handleEnded = () => playNext()
+    const updateTime = () => {
+      if (!Number.isNaN(audio.currentTime)) {
+        setCurrentTime(audio.currentTime)
+      }
+    }
+
+    const updateDuration = () => {
+      if (!Number.isNaN(audio.duration) && audio.duration !== Infinity) {
+        setDuration(audio.duration)
+      }
+    }
+
+    const handleEnded = () => {
+      // Don't setPlaying false here, wait for next track load logic or stop
+      playNext()
+    }
+
+    const handleWaiting = () => setIsLoading(true)
+    const handleCanPlay = () => setIsLoading(false)
+    const handleError = (e: Event) => {
+      console.error('Audio Playback Error:', e)
+      setIsLoading(false)
+      setIsPlaying(false)
+      toast({
+        title: 'Erro na reprodução',
+        description: 'Não foi possível reproduzir este áudio.',
+        variant: 'destructive',
+      })
+    }
 
     audio.addEventListener('timeupdate', updateTime)
+    audio.addEventListener('durationchange', updateDuration)
     audio.addEventListener('loadedmetadata', updateDuration)
     audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('waiting', handleWaiting)
+    audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('error', handleError)
 
     return () => {
+      audio.pause()
       audio.removeEventListener('timeupdate', updateTime)
+      audio.removeEventListener('durationchange', updateDuration)
       audio.removeEventListener('loadedmetadata', updateDuration)
       audio.removeEventListener('ended', handleEnded)
-      audio.pause()
+      audio.removeEventListener('waiting', handleWaiting)
+      audio.removeEventListener('canplay', handleCanPlay)
+      audio.removeEventListener('error', handleError)
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
+    }
+  }, []) // Empty dependency array means this runs once on mount
+
+  // Sync Volume
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volume))
+    }
+  }, [volume])
+
+  const safePlay = useCallback(async () => {
+    if (!audioRef.current) return
+
+    try {
+      playPromiseRef.current = audioRef.current.play()
+      await playPromiseRef.current
+      setIsPlaying(true)
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        // Expected during rapid switching
+      } else {
+        console.error('Playback failed:', error)
+        setIsPlaying(false)
+      }
+    } finally {
+      playPromiseRef.current = null
     }
   }, [])
 
-  // Handle Fade Logic on Play/Pause/Track Change
+  const safePause = useCallback(() => {
+    if (!audioRef.current) return
+    audioRef.current.pause()
+    setIsPlaying(false)
+  }, [])
+
   const performFade = useCallback(
     (targetVolume: number, onComplete?: () => void) => {
       if (!audioRef.current) return
-      const audio = audioRef.current
-      const step = 0.05
-      const intervalTime = (fadeDuration * 1000 * step) / volume
 
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
 
-      fadeIntervalRef.current = setInterval(() => {
-        const diff = targetVolume - audio.volume
-        if (Math.abs(diff) < step) {
-          audio.volume = targetVolume
-          if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
-          onComplete?.()
-        } else {
-          audio.volume += diff > 0 ? step : -step
-        }
-      }, intervalTime)
-    },
-    [fadeDuration, volume],
-  )
+      const audio = audioRef.current
+      const startVolume = audio.volume
+      const diff = targetVolume - startVolume
 
-  // Auto Fade-out near end
-  useEffect(() => {
-    if (
-      isPlaying &&
-      duration > 0 &&
-      currentTime >= duration - fadeDuration &&
-      audioRef.current &&
-      audioRef.current.volume > 0.1
-    ) {
-      // Logic for fading out at the end is tricky with the interval,
-      // but simple linear reduction per tick works for visual/audio sync
-      if (!fadeIntervalRef.current) {
-        // Start a fade out if not already fading
-        // This is a simplified check
+      if (Math.abs(diff) < 0.01) {
+        audio.volume = targetVolume
+        onComplete?.()
+        return
       }
-    }
-  }, [currentTime, duration, fadeDuration, isPlaying])
 
-  const togglePlay = useCallback(() => {
-    if (!audioRef.current) return
+      const steps = 20
+      const durationMs = fadeDuration * 1000
+      const stepTime = durationMs / steps
+      const volStep = diff / steps
 
-    if (isPlaying) {
-      performFade(0, () => {
-        audioRef.current?.pause()
-        setIsPlaying(false)
-      })
-    } else {
-      audioRef.current.volume = 0
-      audioRef.current.play().catch((e) => {
-        console.error('Playback error', e)
-        toast({
-          title: 'Erro na reprodução',
-          description: 'Não foi possível reproduzir o áudio.',
-          variant: 'destructive',
-        })
-      })
-      setIsPlaying(true)
-      performFade(volume)
-    }
-  }, [isPlaying, performFade, volume])
+      let currentStep = 0
+
+      fadeIntervalRef.current = setInterval(() => {
+        currentStep++
+        const newVol = startVolume + volStep * currentStep
+
+        // Clamp volume
+        if (newVol < 0) audio.volume = 0
+        else if (newVol > 1) audio.volume = 1
+        else audio.volume = newVol
+
+        if (currentStep >= steps) {
+          if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
+          audio.volume = targetVolume
+          onComplete?.()
+        }
+      }, stepTime)
+    },
+    [fadeDuration],
+  )
 
   const loadAndPlay = useCallback(
     (track: Track) => {
       if (!audioRef.current || !track.url) return
-      const audio = audioRef.current
 
-      // Fade out current if playing
       const startNewTrack = () => {
-        audio.src = track.url!
-        audio.load()
-        audio.volume = 0
-        audio.play().then(() => {
-          setIsPlaying(true)
+        if (!audioRef.current) return
+        audioRef.current.src = track.url!
+        audioRef.current.load()
+        audioRef.current.volume = 0
+        safePlay().then(() => {
           performFade(volume)
         })
       }
@@ -134,29 +183,49 @@ export function useAudioPlayer() {
         startNewTrack()
       }
     },
-    [isPlaying, performFade, volume],
+    [isPlaying, performFade, volume, safePlay],
   )
 
-  const playNext = useCallback(() => {
-    if (currentIndex < queue.length - 1) {
-      const nextIndex = currentIndex + 1
-      setCurrentIndex(nextIndex)
-      loadAndPlay(queue[nextIndex])
+  const togglePlay = useCallback(() => {
+    if (!audioRef.current) return
+
+    if (isPlaying) {
+      performFade(0, () => {
+        safePause()
+      })
     } else {
-      setIsPlaying(false)
+      audioRef.current.volume = 0
+      safePlay().then(() => {
+        performFade(volume)
+      })
     }
-  }, [currentIndex, queue, loadAndPlay])
+  }, [isPlaying, performFade, volume, safePlay, safePause])
+
+  const playNext = useCallback(() => {
+    setCurrentIndex((prev) => {
+      if (prev < queue.length - 1) {
+        const next = prev + 1
+        loadAndPlay(queue[next])
+        return next
+      }
+      setIsPlaying(false)
+      return prev
+    })
+  }, [queue, loadAndPlay])
 
   const playPrev = useCallback(() => {
-    if (currentIndex > 0) {
-      const prevIndex = currentIndex - 1
-      setCurrentIndex(prevIndex)
-      loadAndPlay(queue[prevIndex])
-    }
-  }, [currentIndex, queue, loadAndPlay])
+    setCurrentIndex((prev) => {
+      if (prev > 0) {
+        const next = prev - 1
+        loadAndPlay(queue[next])
+        return next
+      }
+      return prev
+    })
+  }, [queue, loadAndPlay])
 
   const seek = useCallback((time: number) => {
-    if (audioRef.current) {
+    if (audioRef.current && Number.isFinite(time)) {
       audioRef.current.currentTime = time
       setCurrentTime(time)
     }
@@ -164,21 +233,31 @@ export function useAudioPlayer() {
 
   const reorderQueue = useCallback(
     (from: number, to: number) => {
-      const newQueue = [...queue]
-      const [moved] = newQueue.splice(from, 1)
-      newQueue.splice(to, 0, moved)
-      setQueue(newQueue)
-      // Update current index if needed
-      if (currentIndex === from) setCurrentIndex(to)
-      else if (currentIndex === to) setCurrentIndex(from) // Swap logic simplified
+      setQueue((prev) => {
+        const newQueue = [...prev]
+        const [moved] = newQueue.splice(from, 1)
+        newQueue.splice(to, 0, moved)
+
+        if (currentIndex === from) {
+          setCurrentIndex(to)
+        } else if (from < currentIndex && to >= currentIndex) {
+          setCurrentIndex(currentIndex - 1)
+        } else if (from > currentIndex && to <= currentIndex) {
+          setCurrentIndex(currentIndex + 1)
+        }
+
+        return newQueue
+      })
     },
-    [queue, currentIndex],
+    [currentIndex],
   )
 
   const skipToIndex = useCallback(
     (index: number) => {
-      setCurrentIndex(index)
-      loadAndPlay(queue[index])
+      if (index >= 0 && index < queue.length) {
+        setCurrentIndex(index)
+        loadAndPlay(queue[index])
+      }
     },
     [queue, loadAndPlay],
   )
@@ -192,6 +271,7 @@ export function useAudioPlayer() {
     duration,
     volume,
     fadeDuration,
+    isLoading,
     togglePlay,
     playNext,
     playPrev,

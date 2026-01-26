@@ -23,6 +23,7 @@ export default function Player() {
     duration,
     volume,
     fadeDuration,
+    isLoading,
     togglePlay,
     playNext,
     playPrev,
@@ -86,12 +87,13 @@ export default function Player() {
         </div>
 
         {/* Info & Cover */}
-        <TrackInfo track={currentTrack} />
+        <TrackInfo track={currentTrack} isLoading={isLoading} />
 
         {/* Controls */}
         <div className="bg-card/30 rounded-2xl p-6 border border-border/50 backdrop-blur-sm">
           <PlayerControls
             isPlaying={isPlaying}
+            isLoading={isLoading}
             onTogglePlay={togglePlay}
             onNext={playNext}
             onPrev={playPrev}

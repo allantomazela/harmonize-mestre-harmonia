@@ -209,22 +209,22 @@ export default function Library() {
                       to={`/library/${track.id}`}
                       className="hover:text-primary transition-colors"
                     >
-                      {track.title}
+                      {track.title || 'Sem título'}
                     </Link>
                     <span className="text-xs text-muted-foreground md:hidden">
-                      {track.composer}
+                      {track.composer || 'Desconhecido'}
                     </span>
                   </div>
                   <div className="col-span-3 md:col-span-3 hidden md:block text-muted-foreground">
-                    {track.composer}
+                    {track.composer || 'Desconhecido'}
                   </div>
                   <div className="col-span-3 md:col-span-2">
                     <Badge variant="outline" className="text-xs">
-                      {track.ritual}
+                      {track.ritual || 'Geral'}
                     </Badge>
                   </div>
                   <div className="col-span-2 md:col-span-1 text-sm text-muted-foreground">
-                    {track.duration}
+                    {track.duration || '--:--'}
                   </div>
                   <div className="col-span-1 flex justify-end">
                     <DropdownMenu>
@@ -277,15 +277,15 @@ export default function Library() {
                   <CardContent className="p-3">
                     <Link to={`/library/${track.id}`} className="block">
                       <h3 className="font-semibold truncate hover:text-primary transition-colors">
-                        {track.title}
+                        {track.title || 'Sem título'}
                       </h3>
                     </Link>
                     <p className="text-sm text-muted-foreground truncate">
-                      {track.composer}
+                      {track.composer || 'Desconhecido'}
                     </p>
                     <div className="flex items-center justify-between mt-3">
                       <Badge variant="secondary" className="text-[10px]">
-                        {track.degree}
+                        {track.degree || 'Todos'}
                       </Badge>
                       {track.isFavorite && (
                         <Heart className="w-4 h-4 text-red-500 fill-current" />
