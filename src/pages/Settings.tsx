@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card'
 import {
   Select,
@@ -34,6 +35,8 @@ import {
   Cloud,
   CheckCircle2,
   RefreshCw,
+  LogOut,
+  ChevronRight,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
@@ -41,14 +44,30 @@ import {
   exportLibraryData,
   importLibraryData,
 } from '@/lib/storage'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 export default function Settings() {
   const { toast } = useToast()
   const { library, refreshLibrary } = useAudioPlayer()
   const [inviteEmail, setInviteEmail] = useState('')
-  const [cloudSyncConnected, setCloudSyncConnected] = useState(false)
+
+  // Cloud Sync State
+  const [connectedAccount, setConnectedAccount] = useState<string | null>(null)
   const [lastSynced, setLastSynced] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
+  const [selectedProvider, setSelectedProvider] = useState<
+    'google' | 'dropbox' | null
+  >(null)
+  const [mockAccountSelection, setMockAccountSelection] = useState('account1')
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,12 +144,37 @@ export default function Settings() {
     e.target.value = ''
   }
 
-  const handleConnectCloud = () => {
-    setCloudSyncConnected(true)
+  const initiateConnection = (provider: 'google' | 'dropbox') => {
+    setSelectedProvider(provider)
+    setIsAccountDialogOpen(true)
+  }
+
+  const confirmConnection = () => {
+    setIsAccountDialogOpen(false)
+    const email =
+      mockAccountSelection === 'account1'
+        ? 'admin@harmonize.com'
+        : 'mestre.harmonia@loja.com.br'
+
+    setConnectedAccount(email)
     toast({
-      title: 'Nuvem Conectada',
-      description: 'Conta Google Drive vinculada com sucesso.',
+      title: 'Conta Conectada',
+      description: `${selectedProvider === 'google' ? 'Google Drive' : 'Dropbox'} vinculado a ${email}.`,
     })
+  }
+
+  const disconnectAccount = () => {
+    if (
+      confirm(
+        'Deseja desconectar sua conta de nuvem? Os backups automáticos serão interrompidos.',
+      )
+    ) {
+      setConnectedAccount(null)
+      toast({
+        title: 'Conta Desconectada',
+        description: 'O vínculo com a nuvem foi removido.',
+      })
+    }
   }
 
   const handleSyncNow = () => {
@@ -148,7 +192,7 @@ export default function Settings() {
   const localFileCount = library.filter((t) => t.isLocal).length
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <h1 className="text-3xl font-bold text-primary">Configurações</h1>
 
       <Tabs defaultValue="local" className="w-full">
@@ -172,9 +216,9 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!cloudSyncConnected ? (
+              {!connectedAccount ? (
                 <div className="grid gap-4">
-                  <div className="p-4 border rounded-lg flex items-center justify-between">
+                  <div className="p-4 border rounded-lg flex items-center justify-between hover:bg-secondary/5 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="bg-blue-100 p-2 rounded-full">
                         <img
@@ -190,9 +234,11 @@ export default function Settings() {
                         </p>
                       </div>
                     </div>
-                    <Button onClick={handleConnectCloud}>Conectar</Button>
+                    <Button onClick={() => initiateConnection('google')}>
+                      Conectar
+                    </Button>
                   </div>
-                  <div className="p-4 border rounded-lg flex items-center justify-between">
+                  <div className="p-4 border rounded-lg flex items-center justify-between hover:bg-secondary/5 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="bg-blue-100 p-2 rounded-full">
                         <img
@@ -208,49 +254,87 @@ export default function Settings() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" onClick={handleConnectCloud}>
+                    <Button
+                      variant="outline"
+                      onClick={() => initiateConnection('dropbox')}
+                    >
                       Conectar
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-700 dark:text-green-400">
-                    <CheckCircle2 className="w-6 h-6" />
-                    <div className="flex-1">
-                      <p className="font-medium">Conta Vinculada</p>
-                      <p className="text-sm opacity-90">
-                        Backup automático habilitado para Google Drive.
-                      </p>
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 bg-primary/5 border border-primary/20 rounded-xl">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12 border-2 border-primary/20">
+                        <AvatarImage
+                          src={`https://img.usecurling.com/ppl/thumbnail?gender=male&seed=${mockAccountSelection === 'account1' ? 99 : 88}`}
+                        />
+                        <AvatarFallback>U</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-lg">
+                            {connectedAccount}
+                          </h3>
+                          <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Conectado
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                          Vinculado ao{' '}
+                          {selectedProvider === 'google'
+                            ? 'Google Drive'
+                            : 'Dropbox'}
+                        </p>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setCloudSyncConnected(false)}
-                    >
-                      Desconectar
-                    </Button>
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAccountDialogOpen(true)}
+                      >
+                        Trocar Conta
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={disconnectAccount}
+                      >
+                        <LogOut className="w-4 h-4 mr-2" /> Desconectar
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-4 border-t border-border">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">
-                        Última Sincronização
+                        Última Sincronização Automática
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        {lastSynced || 'Nunca'}
+                        {lastSynced || 'Pendente'}
                       </span>
                     </div>
                     <Button
-                      className="w-full"
+                      className="w-full h-12 text-base"
                       onClick={handleSyncNow}
                       disabled={isSyncing}
                     >
                       <RefreshCw
                         className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`}
                       />
-                      {isSyncing ? 'Sincronizando...' : 'Fazer Backup Agora'}
+                      {isSyncing
+                        ? 'Sincronizando seus dados...'
+                        : 'Fazer Backup Manual Agora'}
                     </Button>
+                    <p className="text-center text-xs text-muted-foreground pt-2">
+                      O backup automático ocorre sempre que o navegador é
+                      fechado (requer internet).
+                    </p>
                   </div>
                 </div>
               )}
@@ -451,6 +535,82 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Account Selection Dialog */}
+      <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Selecionar Conta</DialogTitle>
+            <DialogDescription>
+              Escolha qual conta Google você deseja usar para sincronizar seus
+              backups.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <RadioGroup
+              value={mockAccountSelection}
+              onValueChange={setMockAccountSelection}
+              className="gap-3"
+            >
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${mockAccountSelection === 'account1' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => setMockAccountSelection('account1')}
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=male&seed=99" />
+                    <AvatarFallback>AD</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">Admin Harmonize</p>
+                    <p className="text-sm text-muted-foreground">
+                      admin@harmonize.com
+                    </p>
+                  </div>
+                </div>
+                <RadioGroupItem value="account1" id="account1" />
+              </div>
+
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${mockAccountSelection === 'account2' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => setMockAccountSelection('account2')}
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=male&seed=88" />
+                    <AvatarFallback>MH</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">Mestre Harmonia</p>
+                    <p className="text-sm text-muted-foreground">
+                      mestre.harmonia@loja.com.br
+                    </p>
+                  </div>
+                </div>
+                <RadioGroupItem value="account2" id="account2" />
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border opacity-60 cursor-not-allowed">
+                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <p className="font-medium">Adicionar outra conta...</p>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setIsAccountDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={confirmConnection}>Confirmar Seleção</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
