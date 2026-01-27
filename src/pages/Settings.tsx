@@ -1,42 +1,23 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { lodgeMembers } from '@/lib/mock-data'
-import { useToast } from '@/hooks/use-toast'
+import { Switch } from '@/components/ui/switch'
 import {
-  Mail,
-  UserPlus,
-  Trash2,
   Database,
   HardDrive,
   Download,
   Upload,
+  Trash2,
+  Mail,
+  UserPlus,
   Cloud,
-  CheckCircle2,
-  RefreshCw,
-  LogOut,
-  ChevronRight,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
@@ -44,39 +25,30 @@ import {
   exportLibraryData,
   importLibraryData,
 } from '@/lib/storage'
+import { useToast } from '@/hooks/use-toast'
+import { ProfileSettings } from '@/components/settings/profile-settings'
+import { AppearanceSettings } from '@/components/settings/appearance-settings'
+import { NotificationSettings } from '@/components/settings/notification-settings'
+import { DriveExplorer } from '@/components/settings/drive-explorer'
+import { useState } from 'react'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { lodgeMembers } from '@/lib/mock-data'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 
 export default function Settings() {
   const { toast } = useToast()
   const { library, refreshLibrary } = useAudioPlayer()
   const [inviteEmail, setInviteEmail] = useState('')
-
-  // Cloud Sync State
-  const [connectedAccount, setConnectedAccount] = useState<string | null>(null)
-  const [lastSynced, setLastSynced] = useState<string | null>(null)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<
-    'google' | 'dropbox' | null
-  >(null)
-  const [mockAccountSelection, setMockAccountSelection] = useState('account1')
-
-  const handleInvite = (e: React.FormEvent) => {
-    e.preventDefault()
-    toast({
-      title: 'Convite Enviado',
-      description: `Um convite foi enviado para ${inviteEmail}.`,
-    })
-    setInviteEmail('')
-  }
+  const localFileCount = library.filter((t) => t.isLocal).length
 
   const handleClearLibrary = async () => {
     if (
@@ -144,204 +116,35 @@ export default function Settings() {
     e.target.value = ''
   }
 
-  const initiateConnection = (provider: 'google' | 'dropbox') => {
-    setSelectedProvider(provider)
-    setIsAccountDialogOpen(true)
-  }
-
-  const confirmConnection = () => {
-    setIsAccountDialogOpen(false)
-    const email =
-      mockAccountSelection === 'account1'
-        ? 'admin@harmonize.com'
-        : 'mestre.harmonia@loja.com.br'
-
-    setConnectedAccount(email)
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
     toast({
-      title: 'Conta Conectada',
-      description: `${selectedProvider === 'google' ? 'Google Drive' : 'Dropbox'} vinculado a ${email}.`,
+      title: 'Convite Enviado',
+      description: `Um convite foi enviado para ${inviteEmail}.`,
     })
+    setInviteEmail('')
   }
-
-  const disconnectAccount = () => {
-    if (
-      confirm(
-        'Deseja desconectar sua conta de nuvem? Os backups automáticos serão interrompidos.',
-      )
-    ) {
-      setConnectedAccount(null)
-      toast({
-        title: 'Conta Desconectada',
-        description: 'O vínculo com a nuvem foi removido.',
-      })
-    }
-  }
-
-  const handleSyncNow = () => {
-    setIsSyncing(true)
-    setTimeout(() => {
-      setIsSyncing(false)
-      setLastSynced(new Date().toLocaleString())
-      toast({
-        title: 'Sincronização Concluída',
-        description: 'Seus dados foram salvos na nuvem.',
-      })
-    }, 2000)
-  }
-
-  const localFileCount = library.filter((t) => t.isLocal).length
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+    <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-fade-in">
       <h1 className="text-3xl font-bold text-primary">Configurações</h1>
 
-      <Tabs defaultValue="local" className="w-full">
-        <TabsList>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
           <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="lodge">Loja & Membros</TabsTrigger>
-          <TabsTrigger value="local">Armazenamento Local</TabsTrigger>
-          <TabsTrigger value="cloud">Cloud Sync</TabsTrigger>
+          <TabsTrigger value="lodge">Loja</TabsTrigger>
+          <TabsTrigger value="local">Dados</TabsTrigger>
+          <TabsTrigger value="cloud">Nuvem</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cloud" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="w-5 h-5 text-primary" /> Sincronização em
-                Nuvem
-              </CardTitle>
-              <CardDescription>
-                Mantenha seus backups salvos automaticamente no Google Drive ou
-                Dropbox.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {!connectedAccount ? (
-                <div className="grid gap-4">
-                  <div className="p-4 border rounded-lg flex items-center justify-between hover:bg-secondary/5 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-100 p-2 rounded-full">
-                        <img
-                          src="https://img.usecurling.com/i?q=google&shape=fill"
-                          className="w-6 h-6"
-                          alt="Google Drive"
-                        />
-                      </div>
-                      <div>
-                        <p className="font-medium">Google Drive</p>
-                        <p className="text-xs text-muted-foreground">
-                          Salvar backups no seu drive pessoal
-                        </p>
-                      </div>
-                    </div>
-                    <Button onClick={() => initiateConnection('google')}>
-                      Conectar
-                    </Button>
-                  </div>
-                  <div className="p-4 border rounded-lg flex items-center justify-between hover:bg-secondary/5 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-100 p-2 rounded-full">
-                        <img
-                          src="https://img.usecurling.com/i?q=dropbox&shape=fill"
-                          className="w-6 h-6"
-                          alt="Dropbox"
-                        />
-                      </div>
-                      <div>
-                        <p className="font-medium">Dropbox</p>
-                        <p className="text-xs text-muted-foreground">
-                          Salvar backups na pasta de aplicativos
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => initiateConnection('dropbox')}
-                    >
-                      Conectar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 bg-primary/5 border border-primary/20 rounded-xl">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 border-2 border-primary/20">
-                        <AvatarImage
-                          src={`https://img.usecurling.com/ppl/thumbnail?gender=male&seed=${mockAccountSelection === 'account1' ? 99 : 88}`}
-                        />
-                        <AvatarFallback>U</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-lg">
-                            {connectedAccount}
-                          </h3>
-                          <Badge
-                            variant="secondary"
-                            className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Conectado
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          Vinculado ao{' '}
-                          {selectedProvider === 'google'
-                            ? 'Google Drive'
-                            : 'Dropbox'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 w-full md:w-auto">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAccountDialogOpen(true)}
-                      >
-                        Trocar Conta
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={disconnectAccount}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" /> Desconectar
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 pt-4 border-t border-border">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">
-                        Última Sincronização Automática
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {lastSynced || 'Pendente'}
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full h-12 text-base"
-                      onClick={handleSyncNow}
-                      disabled={isSyncing}
-                    >
-                      <RefreshCw
-                        className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`}
-                      />
-                      {isSyncing
-                        ? 'Sincronizando seus dados...'
-                        : 'Fazer Backup Manual Agora'}
-                    </Button>
-                    <p className="text-center text-xs text-muted-foreground pt-2">
-                      O backup automático ocorre sempre que o navegador é
-                      fechado (requer internet).
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* GENERAL TAB */}
+        <TabsContent value="general" className="space-y-6 mt-6">
+          <ProfileSettings />
+          <AppearanceSettings />
+          <NotificationSettings />
         </TabsContent>
 
+        {/* LODGE TAB */}
         <TabsContent value="lodge" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -430,6 +233,7 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
+        {/* LOCAL DATA TAB */}
         <TabsContent value="local" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -464,7 +268,7 @@ export default function Settings() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Salva um arquivo JSON com sua organização de pastas e
-                    metadados (não inclui os arquivos de áudio).
+                    metadados.
                   </p>
                   <Button
                     variant="outline"
@@ -524,93 +328,25 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="general">
+        {/* CLOUD TAB */}
+        <TabsContent value="cloud" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Configurações Gerais</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Cloud className="w-5 h-5 text-primary" /> Integração com Google
+                Drive
+              </CardTitle>
+              <CardDescription>
+                Conecte seu Google Drive para importar arquivos diretamente para
+                sua biblioteca local.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Opções gerais do sistema.</p>
+              <DriveExplorer />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Account Selection Dialog */}
-      <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Selecionar Conta</DialogTitle>
-            <DialogDescription>
-              Escolha qual conta Google você deseja usar para sincronizar seus
-              backups.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <RadioGroup
-              value={mockAccountSelection}
-              onValueChange={setMockAccountSelection}
-              className="gap-3"
-            >
-              <div
-                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${mockAccountSelection === 'account1' ? 'border-primary bg-primary/5' : 'border-border'}`}
-                onClick={() => setMockAccountSelection('account1')}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=male&seed=99" />
-                    <AvatarFallback>AD</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">Admin Harmonize</p>
-                    <p className="text-sm text-muted-foreground">
-                      admin@harmonize.com
-                    </p>
-                  </div>
-                </div>
-                <RadioGroupItem value="account1" id="account1" />
-              </div>
-
-              <div
-                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${mockAccountSelection === 'account2' ? 'border-primary bg-primary/5' : 'border-border'}`}
-                onClick={() => setMockAccountSelection('account2')}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=male&seed=88" />
-                    <AvatarFallback>MH</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">Mestre Harmonia</p>
-                    <p className="text-sm text-muted-foreground">
-                      mestre.harmonia@loja.com.br
-                    </p>
-                  </div>
-                </div>
-                <RadioGroupItem value="account2" id="account2" />
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border opacity-60 cursor-not-allowed">
-                <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <p className="font-medium">Adicionar outra conta...</p>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setIsAccountDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={confirmConnection}>Confirmar Seleção</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
