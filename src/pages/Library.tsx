@@ -1,38 +1,27 @@
 import { useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
-  MoreVertical,
   Trash,
   Play,
   LayoutGrid,
   List,
-  Music,
   FolderInput,
-  FileAudio,
   Folder,
-  Edit,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { saveTrack, deleteTrack } from '@/lib/storage'
 import { FolderSidebar } from '@/components/library/folder-sidebar'
 import { EditTrackDialog } from '@/components/library/edit-track-dialog'
+import { TrackRow } from '@/components/track-row'
+import { cn } from '@/lib/utils'
 
 export default function Library() {
   const {
@@ -40,10 +29,14 @@ export default function Library() {
     folders,
     refreshLibrary,
     replaceQueue,
+    addToQueue,
     skipToIndex,
     createFolder,
     removeFolder,
     updateTrack,
+    currentTrack,
+    isPlaying,
+    togglePlay,
   } = useAudioPlayer()
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
@@ -53,7 +46,6 @@ export default function Library() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // Filter tracks from Library (not queue)
   const libraryTracks = library.filter((track) => {
     const matchesSearch =
       track.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -172,14 +164,8 @@ export default function Library() {
   }
 
   const handlePlayContext = (startIndex: number = 0) => {
-    // Replaces queue with current visible tracks and starts playing from startIndex
     if (libraryTracks.length > 0) {
       replaceQueue(libraryTracks)
-      // We need a small timeout or state effect to play after queue update,
-      // but skipToIndex in our context implementation accesses current state of queue inside callback
-      // if using functional update or we rely on the fact that replaceQueue updates state.
-      // However, skipToIndex usually relies on index.
-      // To ensure sync, we call skipToIndex immediately.
       setTimeout(() => skipToIndex(startIndex), 0)
     }
   }
@@ -282,14 +268,14 @@ export default function Library() {
                   <DropdownMenuItem
                     onClick={() => handleMoveToFolder(undefined)}
                   >
-                    <Music className="w-4 h-4 mr-2" /> Raiz (Sem Pasta)
+                    Raiz (Sem Pasta)
                   </DropdownMenuItem>
                   {folders.map((f) => (
                     <DropdownMenuItem
                       key={f.id}
                       onClick={() => handleMoveToFolder(f.id)}
                     >
-                      <Folder className="w-4 h-4 mr-2" /> {f.name}
+                      {f.name}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -310,154 +296,62 @@ export default function Library() {
         <div className="flex-1 overflow-y-auto">
           {viewMode === 'list' ? (
             <div className="rounded-md border border-border bg-card">
-              <div className="grid grid-cols-12 gap-4 p-4 border-b border-border text-sm font-medium text-muted-foreground sticky top-0 bg-card z-10">
-                <div className="col-span-1"></div>
-                <div className="col-span-5 md:col-span-4">Título</div>
-                <div className="col-span-3 md:col-span-3 hidden md:block">
-                  Compositor / Artista
-                </div>
-                <div className="col-span-3 md:col-span-2">Tipo</div>
-                <div className="col-span-2 md:col-span-1">Duração</div>
-                <div className="col-span-1"></div>
-              </div>
-              {libraryTracks.length > 0 ? (
-                libraryTracks.map((track, idx) => (
-                  <div
-                    key={track.id}
-                    className={cn(
-                      'grid grid-cols-12 gap-4 p-4 items-center border-b border-border last:border-0 hover:bg-secondary/10 transition-colors',
-                      selectedItems.includes(track.id) && 'bg-primary/5',
-                    )}
-                  >
-                    <div className="col-span-1 flex items-center justify-center">
-                      <Checkbox
-                        checked={selectedItems.includes(track.id)}
-                        onCheckedChange={() => toggleSelection(track.id)}
-                      />
-                    </div>
-                    <div className="col-span-5 md:col-span-4 font-medium flex flex-col">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="p-2 bg-secondary/20 rounded-md cursor-pointer hover:bg-primary/20"
-                          onClick={() => handlePlayContext(idx)}
-                        >
-                          <FileAudio className="w-4 h-4 text-primary" />
-                        </div>
-                        <Link
-                          to={`/library/${track.id}`}
-                          className="hover:text-primary transition-colors truncate"
-                        >
-                          {track.title || 'Sem título'}
-                        </Link>
-                      </div>
-                    </div>
-                    <div className="col-span-3 md:col-span-3 hidden md:block text-muted-foreground truncate">
-                      {track.composer || 'Desconhecido'}
-                    </div>
-                    <div className="col-span-3 md:col-span-2">
-                      <Badge variant="outline" className="text-xs">
-                        {track.isLocal ? 'Arquivo Local' : 'Demo Sistema'}
-                      </Badge>
-                    </div>
-                    <div className="col-span-2 md:col-span-1 text-sm text-muted-foreground">
-                      {track.duration || '--:--'}
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handlePlayContext(idx)}
-                          >
-                            <Play className="w-4 h-4 mr-2" /> Reproduzir
-                          </DropdownMenuItem>
-                          {track.isLocal && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => setTrackToEdit(track)}
-                              >
-                                <Edit className="w-4 h-4 mr-2" /> Editar
-                                Metadados
-                              </DropdownMenuItem>
-                              <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                  <Folder className="w-4 h-4 mr-2" /> Mover para
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      updateTrack({
-                                        ...track,
-                                        folderId: undefined,
-                                      })
-                                    }
-                                  >
-                                    Raiz (Sem Pasta)
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  {folders.map((f) => (
-                                    <DropdownMenuItem
-                                      key={f.id}
-                                      onClick={() =>
-                                        updateTrack({
-                                          ...track,
-                                          folderId: f.id,
-                                        })
-                                      }
-                                    >
-                                      {f.name}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuSub>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleDelete(track.id)}
-                              >
-                                <Trash className="w-4 h-4 mr-2" /> Excluir
-                                Arquivo
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+              <div className="p-2 space-y-1">
+                {libraryTracks.length > 0 ? (
+                  libraryTracks.map((track, idx) => (
+                    <TrackRow
+                      key={track.id}
+                      track={track}
+                      index={idx}
+                      isPlaying={isPlaying}
+                      isCurrent={currentTrack?.id === track.id}
+                      isSelected={selectedItems.includes(track.id)}
+                      onSelect={() => toggleSelection(track.id)}
+                      showSelect
+                      onPlay={() => {
+                        if (currentTrack?.id === track.id) {
+                          togglePlay()
+                        } else {
+                          handlePlayContext(idx)
+                        }
+                      }}
+                      onAddToQueue={() => addToQueue([track])}
+                      onEdit={
+                        track.isLocal ? () => setTrackToEdit(track) : undefined
+                      }
+                      onDelete={
+                        track.isLocal ? () => handleDelete(track.id) : undefined
+                      }
+                      onMoveToFolder={
+                        track.isLocal
+                          ? (fid) => updateTrack({ ...track, folderId: fid })
+                          : undefined
+                      }
+                      folders={folders}
+                    />
+                  ))
+                ) : (
+                  <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
+                    <FolderInput className="w-12 h-12 opacity-20" />
+                    <p>
+                      Nenhum arquivo encontrado nesta pasta. Importe arquivos.
+                    </p>
+                    <Button variant="outline" onClick={handleImportClick}>
+                      Importar Agora
+                    </Button>
                   </div>
-                ))
-              ) : (
-                <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
-                  <FolderInput className="w-12 h-12 opacity-20" />
-                  <p>
-                    Nenhum arquivo encontrado nesta pasta. Importe arquivos.
-                  </p>
-                  <Button variant="outline" onClick={handleImportClick}>
-                    Importar Agora
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+              {/* Grid view remains simple for now, can be updated later to match Row features if needed */}
               {libraryTracks.map((track, idx) => (
-                <Card
+                <div
                   key={track.id}
-                  className={cn(
-                    'group overflow-hidden border-border transition-all hover:border-primary',
-                    selectedItems.includes(track.id) && 'ring-2 ring-primary',
-                  )}
+                  className="group relative flex flex-col gap-2 p-3 rounded-lg hover:bg-secondary/20 transition-all border border-transparent hover:border-border"
                 >
-                  <div className="relative aspect-square bg-secondary/30 flex items-center justify-center">
-                    <div className="absolute top-2 left-2 z-10">
-                      <Checkbox
-                        checked={selectedItems.includes(track.id)}
-                        onCheckedChange={() => toggleSelection(track.id)}
-                      />
-                    </div>
+                  <div className="aspect-square rounded-md bg-secondary overflow-hidden relative shadow-sm">
                     {track.cover ? (
                       <img
                         src={track.cover}
@@ -465,40 +359,29 @@ export default function Library() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Music className="w-16 h-16 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <List className="w-12 h-12 text-muted-foreground/30" />
+                      </div>
                     )}
-
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button
                         size="icon"
-                        className="rounded-full bg-primary text-primary-foreground"
+                        className="rounded-full h-12 w-12"
                         onClick={() => handlePlayContext(idx)}
                       >
                         <Play className="w-5 h-5 ml-1" />
                       </Button>
-                      {track.isLocal && (
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="rounded-full"
-                          onClick={() => setTrackToEdit(track)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      )}
                     </div>
                   </div>
-                  <CardContent className="p-3">
-                    <Link to={`/library/${track.id}`} className="block">
-                      <h3 className="font-semibold truncate hover:text-primary transition-colors">
-                        {track.title || 'Sem título'}
-                      </h3>
-                    </Link>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {track.composer || 'Desconhecido'}
+                  <div>
+                    <h3 className="font-semibold text-sm truncate">
+                      {track.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {track.composer}
                     </p>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}

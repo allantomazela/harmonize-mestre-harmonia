@@ -9,17 +9,8 @@ import {
   CardDescription,
 } from '@/components/ui/card'
 import { playlists, musicLibrary } from '@/lib/mock-data'
-import {
-  ChevronLeft,
-  GripVertical,
-  Play,
-  Sparkles,
-  Plus,
-  Clock,
-  Wand2,
-} from 'lucide-react'
+import { ChevronLeft, Play, Sparkles, Plus, Clock, Wand2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -37,11 +28,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { TrackRow } from '@/components/track-row'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
 export default function PlaylistDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const {
+    currentTrack,
+    isPlaying,
+    togglePlay,
+    addToQueue,
+    replaceQueue,
+    skipToIndex,
+  } = useAudioPlayer()
 
   const playlist = playlists.find((p) => p.id === id)
   // Mock playlist tracks - in real app would query DB
@@ -57,22 +58,6 @@ export default function PlaylistDetails() {
   })
 
   if (!playlist) return <div className="p-6">Playlist não encontrada</div>
-
-  const moveTrack = (index: number, direction: 'up' | 'down') => {
-    const newTracks = [...tracks]
-    if (direction === 'up' && index > 0) {
-      ;[newTracks[index], newTracks[index - 1]] = [
-        newTracks[index - 1],
-        newTracks[index],
-      ]
-    } else if (direction === 'down' && index < newTracks.length - 1) {
-      ;[newTracks[index], newTracks[index + 1]] = [
-        newTracks[index + 1],
-        newTracks[index],
-      ]
-    }
-    setTracks(newTracks)
-  }
 
   const handleSmartGenerate = () => {
     // Advanced mock generation logic based on criteria
@@ -105,6 +90,12 @@ export default function PlaylistDetails() {
     })
   }
 
+  const handlePlayAll = () => {
+    // @ts-expect-error
+    replaceQueue(tracks)
+    setTimeout(() => skipToIndex(0), 0)
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <Button
@@ -116,32 +107,38 @@ export default function PlaylistDetails() {
       </Button>
 
       <div className="flex items-start justify-between">
-        <div className="flex gap-4">
-          <div className="w-32 h-32 rounded-lg bg-secondary overflow-hidden shadow-lg">
+        <div className="flex gap-6">
+          <div className="w-40 h-40 rounded-lg bg-secondary overflow-hidden shadow-2xl">
             <img
               src={playlist.cover}
               alt={playlist.title}
               className="w-full h-full object-cover"
             />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-primary">
+          <div className="flex flex-col justify-end pb-2">
+            <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-2">
+              Playlist
+            </span>
+            <h1 className="text-4xl font-bold text-foreground mb-4">
               {playlist.title}
             </h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
+            <p className="text-muted-foreground flex items-center gap-2 mb-4">
               <Clock className="w-4 h-4" /> {playlist.duration} •{' '}
               {tracks.length} faixas
             </p>
-            <div className="flex gap-2 mt-4 flex-wrap">
-              <Button className="bg-primary text-primary-foreground">
-                <Play className="w-4 h-4 mr-2" /> Tocar
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                className="bg-primary text-primary-foreground rounded-full px-8"
+                onClick={handlePlayAll}
+              >
+                <Play className="w-4 h-4 mr-2 fill-current" /> Reproduzir
               </Button>
 
               <Dialog>
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="border-primary/50 text-primary hover:bg-primary/10"
+                    className="border-primary/50 text-primary hover:bg-primary/10 rounded-full"
                   >
                     <Wand2 className="w-4 h-4 mr-2" /> Smart Engine
                   </Button>
@@ -232,69 +229,39 @@ export default function PlaylistDetails() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-none shadow-none bg-transparent">
+        <CardHeader className="px-0 pt-6">
           <CardTitle>Faixas</CardTitle>
           <CardDescription>
-            Arraste para reordenar (Simulado com botões)
+            Lista de reprodução desta sequência.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 space-y-1">
           {tracks.map(
             (track, index) =>
               track && (
-                <div
+                <TrackRow
+                  // @ts-expect-error
                   key={`${track.id}-${index}`}
-                  className="flex items-center gap-4 p-4 border-b border-border last:border-0 hover:bg-secondary/10 group"
-                >
-                  <div className="flex flex-col gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => moveTrack(index, 'up')}
-                      disabled={index === 0}
-                    >
-                      ▲
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => moveTrack(index, 'down')}
-                      disabled={index === tracks.length - 1}
-                    >
-                      ▼
-                    </Button>
-                  </div>
-                  <div className="text-muted-foreground w-6 text-center">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{track.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {track.composer}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">{track.ritual}</Badge>
-                    {track.tone && (
-                      <Badge variant="secondary">{track.tone}</Badge>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground w-12 text-right">
-                    {track.duration}
-                  </div>
-                  <Button variant="ghost" size="icon">
-                    <GripVertical className="w-4 h-4 text-muted-foreground" />
-                  </Button>
-                </div>
+                  // @ts-expect-error
+                  track={track}
+                  index={index}
+                  isPlaying={isPlaying}
+                  isCurrent={currentTrack?.id === track.id}
+                  onPlay={() => {
+                    // @ts-expect-error
+                    replaceQueue(tracks)
+                    setTimeout(() => skipToIndex(index), 0)
+                  }}
+                  // @ts-expect-error
+                  onAddToQueue={() => addToQueue([track])}
+                />
               ),
           )}
-          <div className="p-4">
+          <div className="pt-4">
             <Button
               variant="ghost"
-              className="w-full border-dashed border border-border"
+              className="w-full border-dashed border border-border text-muted-foreground hover:text-primary"
             >
               <Plus className="w-4 h-4 mr-2" /> Adicionar Faixa Manualmente
             </Button>

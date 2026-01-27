@@ -12,11 +12,10 @@ import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import {
   Settings2,
-  Music,
   MonitorPlay,
   Activity,
-  Gauge,
-  Timer,
+  ListMusic,
+  Maximize2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Link } from 'react-router-dom'
@@ -27,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 export default function Player() {
   const {
@@ -50,156 +50,128 @@ export default function Player() {
     setFadeOutDuration,
     setFadeCurve,
     reorderQueue,
+    removeFromQueue,
     skipToIndex,
   } = useAudioPlayer()
 
-  const remainingTime = duration - currentTime
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00'
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in">
-      {/* Left Column: Player Main */}
-      <div className="flex-1 flex flex-col justify-center space-y-8 max-w-2xl mx-auto w-full">
-        {/* Header / Meta */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Music className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Player Ritual</h1>
-              <p className="text-xs text-muted-foreground">Sessão Ativa</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
+    <div className="flex flex-col h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in">
+      <div className="flex-1 flex gap-8 items-center justify-center relative">
+        {/* Main Player Area */}
+        <div className="flex-1 max-w-3xl w-full flex flex-col justify-center space-y-8 z-10">
+          {/* Header Controls */}
+          <div className="flex items-center justify-between">
             <Link to="/live-mode">
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-primary/20 hover:border-primary/50"
+                className="gap-2 border-primary/20 hover:border-primary/50 text-xs uppercase tracking-wider"
               >
-                <MonitorPlay className="w-4 h-4" />
-                <span className="hidden sm:inline">Live Mode</span>
+                <MonitorPlay className="w-4 h-4" /> Live Mode
               </Button>
             </Link>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Settings2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Transição</span>
-                  <Badge variant="secondary" className="ml-1 text-[10px] h-5">
-                    {fadeInDuration}s / {fadeOutDuration}s
-                  </Badge>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-sm flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> Configuração de Fade
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label>Fade In (Início)</Label>
-                        <span className="text-xs text-muted-foreground">
-                          {fadeInDuration}s
-                        </span>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings2 className="w-5 h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Activity className="w-4 h-4" /> Configuração de Fade
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Fade In (Início)</Label>
+                          <span className="text-xs text-muted-foreground">
+                            {fadeInDuration}s
+                          </span>
+                        </div>
+                        <Slider
+                          value={[fadeInDuration]}
+                          min={0}
+                          max={10}
+                          step={0.5}
+                          onValueChange={(v) => setFadeInDuration(v[0])}
+                        />
                       </div>
-                      <Slider
-                        value={[fadeInDuration]}
-                        min={0}
-                        max={10}
-                        step={0.5}
-                        onValueChange={(v) => setFadeInDuration(v[0])}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label>Fade Out (Fim)</Label>
-                        <span className="text-xs text-muted-foreground">
-                          {fadeOutDuration}s
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Fade Out (Fim)</Label>
+                          <span className="text-xs text-muted-foreground">
+                            {fadeOutDuration}s
+                          </span>
+                        </div>
+                        <Slider
+                          value={[fadeOutDuration]}
+                          min={0}
+                          max={10}
+                          step={0.5}
+                          onValueChange={(v) => setFadeOutDuration(v[0])}
+                        />
                       </div>
-                      <Slider
-                        value={[fadeOutDuration]}
-                        min={0}
-                        max={10}
-                        step={0.5}
-                        onValueChange={(v) => setFadeOutDuration(v[0])}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Curva de Transição</Label>
-                      <Select
-                        value={fadeCurve}
-                        onValueChange={(v: any) => setFadeCurve(v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="linear">Linear</SelectItem>
-                          <SelectItem value="exponential">
-                            Exponencial
-                          </SelectItem>
-                          <SelectItem value="smooth">
-                            Suave (SmoothStep)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        <Label>Curva de Transição</Label>
+                        <Select
+                          value={fadeCurve}
+                          onValueChange={(v: any) => setFadeCurve(v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="linear">Linear</SelectItem>
+                            <SelectItem value="exponential">
+                              Exponencial
+                            </SelectItem>
+                            <SelectItem value="smooth">
+                              Suave (SmoothStep)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground pt-1 border-t border-border mt-2">
-                    Controla a suavidade da entrada e saída do áudio.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
+                </PopoverContent>
+              </Popover>
 
-        {/* Technical Data Display */}
-        {currentTrack && (
-          <div className="grid grid-cols-3 gap-2 bg-secondary/10 p-2 rounded-lg border border-border/50 text-center">
-            <div className="flex flex-col items-center justify-center p-2">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
-                <Gauge className="w-3 h-3" /> BPM
-              </span>
-              <span className="text-lg font-mono font-bold">
-                {currentTrack.bpm || '--'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center justify-center p-2 border-l border-r border-border/50">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
-                <Music className="w-3 h-3" /> KEY
-              </span>
-              <span className="text-lg font-mono font-bold">
-                {currentTrack.tone || '--'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center justify-center p-2">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 mb-1">
-                <Timer className="w-3 h-3" /> Restante
-              </span>
-              <span className="text-lg font-mono font-bold text-primary">
-                {formatTime(remainingTime)}
-              </span>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-2 lg:hidden"
+                    size="sm"
+                  >
+                    <ListMusic className="w-4 h-4" /> Fila
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-md p-0">
+                  <div className="h-full pt-6">
+                    <QueueList
+                      queue={queue}
+                      currentIndex={currentIndex}
+                      onReorder={reorderQueue}
+                      onRemove={removeFromQueue}
+                      onSkipTo={skipToIndex}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
-        )}
 
-        {/* Info & Cover */}
-        <TrackInfo track={currentTrack} isLoading={isLoading} />
+          {/* Visuals */}
+          <TrackInfo track={currentTrack} isLoading={isLoading} />
 
-        {/* Controls */}
-        <div className="bg-card/30 rounded-2xl p-6 border border-border/50 backdrop-blur-sm">
+          {/* Controls */}
           <PlayerControls
             isPlaying={isPlaying}
             isLoading={isLoading}
@@ -213,16 +185,17 @@ export default function Player() {
             onVolumeChange={setVolume}
           />
         </div>
-      </div>
 
-      {/* Right Column: Queue */}
-      <div className="lg:w-96 w-full flex flex-col h-full overflow-hidden">
-        <QueueList
-          queue={queue}
-          currentIndex={currentIndex}
-          onReorder={reorderQueue}
-          onSkipTo={skipToIndex}
-        />
+        {/* Desktop Queue - Always visible on large screens */}
+        <div className="hidden lg:flex w-96 flex-col h-full bg-card rounded-2xl border border-border overflow-hidden shadow-xl">
+          <QueueList
+            queue={queue}
+            currentIndex={currentIndex}
+            onReorder={reorderQueue}
+            onRemove={removeFromQueue}
+            onSkipTo={skipToIndex}
+          />
+        </div>
       </div>
     </div>
   )

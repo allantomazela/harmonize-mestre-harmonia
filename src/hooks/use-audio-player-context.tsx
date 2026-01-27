@@ -64,6 +64,7 @@ interface AudioPlayerContextType {
   setFadeOutDuration: (sec: number) => void
   setFadeCurve: (curve: FadeCurve) => void
   reorderQueue: (from: number, to: number) => void
+  removeFromQueue: (index: number) => void
   skipToIndex: (index: number) => void
   addToQueue: (tracks: Track[]) => void
   replaceQueue: (tracks: Track[]) => void
@@ -471,6 +472,21 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     [currentIndex],
   )
 
+  const removeFromQueue = useCallback((index: number) => {
+    setQueue((prev) => {
+      const newQueue = [...prev]
+      newQueue.splice(index, 1)
+      return newQueue
+    })
+    setCurrentIndex((prev) => {
+      if (index < prev) return prev - 1
+      // If we remove the current track, we keep the index (which now points to next track),
+      // but we should probably handle stopping or playing next?
+      // For simplicity in this user story, we let the user play next manually if they delete current.
+      return prev
+    })
+  }, [])
+
   const skipToIndex = useCallback(
     (index: number) => {
       setQueue((currentQueue) => {
@@ -488,7 +504,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setQueue((prev) => [...prev, ...tracks])
     toast({
       title: 'Adicionado à Fila',
-      description: `${tracks.length} faixas adicionadas.`,
+      description: `${tracks.length} faixas adicionadas à lista de reprodução.`,
     })
   }, [])
 
@@ -523,6 +539,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setFadeOutDuration,
         setFadeCurve,
         reorderQueue,
+        removeFromQueue,
         skipToIndex,
         addToQueue,
         replaceQueue,

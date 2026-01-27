@@ -17,13 +17,13 @@ export function TrackInfo({ track, isLoading }: TrackInfoProps) {
   }
 
   return (
-    <div className="flex flex-col items-center text-center space-y-6">
-      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group bg-card">
+    <div className="flex flex-col items-center text-center space-y-6 animate-fade-in-up">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group bg-card transition-all hover:scale-[1.02]">
         {track.cover ? (
           <img
             src={track.cover}
             alt={track.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-700"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-950 flex items-center justify-center relative">
@@ -48,22 +48,23 @@ export function TrackInfo({ track, isLoading }: TrackInfoProps) {
         )}
       </div>
 
-      <div className="space-y-2 max-w-md w-full">
-        <h2 className="text-2xl font-bold tracking-tight leading-none truncate px-4">
+      <div className="space-y-2 max-w-lg w-full px-4">
+        <h2 className="text-3xl font-bold tracking-tight leading-tight truncate">
           {track.title}
         </h2>
-        <p className="text-lg text-muted-foreground font-medium truncate px-4">
+        <p className="text-xl text-muted-foreground font-medium truncate">
           {track.composer}
         </p>
-        <div className="flex justify-center gap-2 pt-2">
-          {track.ritual && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-              {track.ritual}
+
+        <div className="flex justify-center flex-wrap gap-2 pt-2">
+          {track.bpm && (
+            <span className="text-xs px-2.5 py-1 rounded-md bg-secondary text-foreground font-mono font-medium border border-border">
+              {track.bpm} BPM
             </span>
           )}
-          {track.degree && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
-              {track.degree}
+          {track.tone && (
+            <span className="text-xs px-2.5 py-1 rounded-md bg-secondary text-foreground font-mono font-medium border border-border">
+              {track.tone}
             </span>
           )}
         </div>
