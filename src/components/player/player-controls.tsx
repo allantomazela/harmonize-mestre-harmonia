@@ -44,88 +44,97 @@ export function PlayerControls({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  const remaining = Math.max(0, duration - progress)
+
   return (
-    <div className="space-y-6 w-full max-w-2xl mx-auto">
-      {/* Progress Bar */}
+    <div className="space-y-8 w-full max-w-2xl mx-auto bg-card/50 p-6 rounded-3xl border border-border/50 shadow-sm backdrop-blur-sm">
+      {/* Progress Bar & Time */}
       <div className="space-y-2 group">
         <Slider
           value={[progress]}
           max={duration || 100}
           step={1}
           onValueChange={(v) => onSeek(v[0])}
-          className="cursor-pointer py-2"
+          className="cursor-pointer py-2 [&_.bg-primary]:bg-primary [&_.bg-primary]:h-1.5 [&_.bg-secondary]:h-1.5 [&_.border-primary]:h-4 [&_.border-primary]:w-4"
         />
-        <div className="flex justify-between text-xs font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+        <div className="flex justify-between text-sm font-mono font-medium text-muted-foreground group-hover:text-foreground transition-colors">
           <span>{formatTime(progress)}</span>
-          <span>{formatTime(duration)}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground/60">
+              {formatTime(duration)}
+            </span>
+            <span className="text-primary font-bold">
+              -{formatTime(remaining)}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Main Controls */}
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex items-center justify-center gap-8">
+      <div className="flex flex-col items-center gap-6">
+        <div className="flex items-center justify-center gap-6 md:gap-10">
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-primary"
+            className="text-muted-foreground hover:text-primary transition-colors"
             disabled
           >
-            <Shuffle className="w-4 h-4" />
+            <Shuffle className="w-5 h-5" />
           </Button>
 
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="h-12 w-12 hover:bg-transparent text-foreground hover:scale-110 transition-transform"
+            className="h-14 w-14 rounded-full border-2 border-border hover:bg-secondary hover:scale-105 transition-all"
             onClick={onPrev}
             disabled={isLoading}
           >
-            <SkipBack className="w-8 h-8 fill-current" />
+            <SkipBack className="w-6 h-6 fill-current" />
           </Button>
 
           <Button
             className={cn(
-              'h-16 w-16 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center',
+              'h-20 w-20 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.2)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center',
               isPlaying
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-primary text-primary-foreground',
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90',
             )}
             onClick={onTogglePlay}
             disabled={isLoading}
           >
             {isPlaying ? (
-              <Pause className="w-8 h-8 fill-current" />
+              <Pause className="w-10 h-10 fill-current" />
             ) : (
-              <Play className="w-8 h-8 fill-current ml-1" />
+              <Play className="w-10 h-10 fill-current ml-1" />
             )}
           </Button>
 
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="h-12 w-12 hover:bg-transparent text-foreground hover:scale-110 transition-transform"
+            className="h-14 w-14 rounded-full border-2 border-border hover:bg-secondary hover:scale-105 transition-all"
             onClick={onNext}
             disabled={isLoading}
           >
-            <SkipForward className="w-8 h-8 fill-current" />
+            <SkipForward className="w-6 h-6 fill-current" />
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-primary"
+            className="text-muted-foreground hover:text-primary transition-colors"
             disabled
           >
-            <Repeat className="w-4 h-4" />
+            <Repeat className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Volume */}
-        <div className="flex items-center gap-3 w-48 mt-2">
+        <div className="flex items-center gap-4 w-full max-w-xs mt-2 px-4 py-2 bg-secondary/30 rounded-full">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
             onClick={() => onVolumeChange(volume === 0 ? 0.5 : 0)}
           >
             {volume === 0 ? (

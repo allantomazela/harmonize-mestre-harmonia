@@ -15,10 +15,9 @@ import {
   MonitorPlay,
   Activity,
   ListMusic,
-  Maximize2,
+  ChevronDown,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Select,
   SelectContent,
@@ -29,6 +28,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 export default function Player() {
+  const navigate = useNavigate()
   const {
     isPlaying,
     currentTrack,
@@ -55,29 +55,41 @@ export default function Player() {
   } = useAudioPlayer()
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in">
-      <div className="flex-1 flex gap-8 items-center justify-center relative">
-        {/* Main Player Area */}
-        <div className="flex-1 max-w-3xl w-full flex flex-col justify-center space-y-8 z-10">
-          {/* Header Controls */}
-          <div className="flex items-center justify-between">
-            <Link to="/live-mode">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-primary/20 hover:border-primary/50 text-xs uppercase tracking-wider"
-              >
-                <MonitorPlay className="w-4 h-4" /> Live Mode
-              </Button>
-            </Link>
+    <div className="flex flex-col h-[calc(100vh-6rem)] gap-6 p-4 max-w-7xl mx-auto animate-fade-in relative">
+      {/* Background Decor */}
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none rounded-[3rem]" />
 
-            <div className="flex items-center gap-2">
+      <div className="flex-1 flex gap-8 items-center justify-center relative z-10">
+        {/* Main Player Area */}
+        <div className="flex-1 max-w-3xl w-full flex flex-col justify-center space-y-8">
+          {/* Header Controls */}
+          <div className="flex items-center justify-between px-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="text-muted-foreground hover:bg-secondary/50 rounded-full"
+            >
+              <ChevronDown className="w-6 h-6" />
+            </Button>
+
+            <div className="flex items-center gap-3">
+              <Link to="/live-mode">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 text-primary text-xs uppercase tracking-wider font-bold"
+                >
+                  <MonitorPlay className="w-4 h-4" /> Live Mode
+                </Button>
+              </Link>
+
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground rounded-full hover:bg-secondary/50"
                   >
                     <Settings2 className="w-5 h-5" />
                   </Button>
@@ -146,11 +158,11 @@ export default function Player() {
               <Sheet>
                 <SheetTrigger asChild>
                   <Button
-                    variant="outline"
-                    className="gap-2 lg:hidden"
-                    size="sm"
+                    variant="ghost"
+                    className="lg:hidden rounded-full hover:bg-secondary/50"
+                    size="icon"
                   >
-                    <ListMusic className="w-4 h-4" /> Fila
+                    <ListMusic className="w-5 h-5 text-muted-foreground" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md p-0">
@@ -187,7 +199,7 @@ export default function Player() {
         </div>
 
         {/* Desktop Queue - Always visible on large screens */}
-        <div className="hidden lg:flex w-96 flex-col h-full bg-card rounded-2xl border border-border overflow-hidden shadow-xl">
+        <div className="hidden lg:flex w-96 flex-col h-full bg-card/80 backdrop-blur-sm rounded-3xl border border-border/50 overflow-hidden shadow-xl">
           <QueueList
             queue={queue}
             currentIndex={currentIndex}
