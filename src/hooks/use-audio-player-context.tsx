@@ -7,7 +7,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react'
-import { musicLibrary } from '@/lib/mock-data'
+import { musicLibrary, playlists as mockPlaylists } from '@/lib/mock-data'
 import { toast } from '@/hooks/use-toast'
 import {
   getAllTracks,
@@ -15,8 +15,12 @@ import {
   saveFolder,
   deleteFolder,
   saveTrack,
+  savePlaylist,
+  getPlaylists,
+  deletePlaylist as deletePlaylistStorage,
   LocalTrack,
   Folder,
+  Playlist,
 } from '@/lib/storage'
 
 export interface Track {
@@ -47,6 +51,7 @@ interface AudioPlayerContextType {
   queue: Track[]
   library: Track[]
   folders: Folder[]
+  playlists: Playlist[]
   currentIndex: number
   currentTime: number
   duration: number
@@ -75,6 +80,10 @@ interface AudioPlayerContextType {
   removeFolder: (id: string) => Promise<void>
   updateTrack: (track: Track) => Promise<void>
   triggerFadeOut: () => void
+  createPlaylist: (playlist: Playlist) => Promise<void>
+  removePlaylist: (id: string) => Promise<void>
+  updatePlaylist: (playlist: Playlist) => Promise<void>
+  getPlaylistTracks: (playlist: Playlist) => Track[]
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -86,6 +95,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<Track[]>([])
   const [library, setLibrary] = useState<Track[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -103,9 +113,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const refreshLibrary = useCallback(async () => {
     try {
-      const [localTracks, loadedFolders] = await Promise.all([
+      const [localTracks, loadedFolders, loadedPlaylists] = await Promise.all([
         getAllTracks(),
         getFolders(),
+        getPlaylists(),
       ])
 
       const formattedLocalTracks: Track[] = localTracks.map((lt) => ({
@@ -130,7 +141,22 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       setLibrary(allTracks)
       setFolders(loadedFolders)
 
-      // Initialize queue if empty
+      // Merge mock playlists with local playlists if no local playlists exist yet
+      if (loadedPlaylists.length === 0 && mockPlaylists.length > 0) {
+        const adaptedMocks: Playlist[] = mockPlaylists.map((mp) => ({
+          id: mp.id,
+          title: mp.title,
+          isSmart: false,
+          createdAt: Date.now(),
+          cover: mp.cover,
+          items: mp.items.map((tid) => ({ trackId: tid })),
+        }))
+        // Note: we don't auto-save mocks to DB to avoid pollution, but we load them in state
+        setPlaylists(adaptedMocks)
+      } else {
+        setPlaylists(loadedPlaylists)
+      }
+
       setQueue((prev) => (prev.length === 0 ? allTracks : prev))
     } catch (error) {
       console.error('Failed to load library', error)
@@ -143,6 +169,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
+  // Folders
   const createFolder = async (name: string) => {
     const newFolder: Folder = {
       id: crypto.randomUUID(),
@@ -161,6 +188,52 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
     await refreshLibrary()
   }
+
+  // Playlists
+  const createPlaylist = async (playlist: Playlist) => {
+    await savePlaylist(playlist)
+    await refreshLibrary()
+  }
+
+  const removePlaylist = async (id: string) => {
+    await deletePlaylistStorage(id)
+    await refreshLibrary()
+  }
+
+  const updatePlaylist = async (playlist: Playlist) => {
+    await savePlaylist(playlist)
+    await refreshLibrary()
+  }
+
+  const getPlaylistTracks = useCallback(
+    (playlist: Playlist): Track[] => {
+      if (!playlist) return []
+
+      if (playlist.isSmart && playlist.rules) {
+        return library.filter((track) => {
+          return playlist.rules!.every((rule) => {
+            const trackValue = String(
+              (track as any)[rule.field] || '',
+            ).toLowerCase()
+            const ruleValue = rule.value.toLowerCase()
+
+            if (rule.operator === 'equals') {
+              return trackValue === ruleValue
+            } else if (rule.operator === 'contains') {
+              return trackValue.includes(ruleValue)
+            }
+            return false
+          })
+        })
+      } else if (playlist.items) {
+        return playlist.items
+          .map((item) => library.find((t) => t.id === item.trackId))
+          .filter((t): t is Track => !!t)
+      }
+      return []
+    },
+    [library],
+  )
 
   const updateTrack = async (updatedTrack: Track) => {
     if (!updatedTrack.isLocal || !updatedTrack.file) return
@@ -352,7 +425,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     })
   }, [isAutoPlay])
 
-  // Audio Event Listeners
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
@@ -377,8 +449,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         playNext()
       } else {
         setIsPlaying(false)
-        // Optionally advance index but don't play?
-        // Radio style manual mode usually means just stop.
       }
     }
 
@@ -552,6 +622,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         queue,
         library,
         folders,
+        playlists,
         currentIndex,
         currentTime,
         duration,
@@ -578,6 +649,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         refreshLibrary,
         createFolder,
         removeFolder,
+        createPlaylist,
+        removePlaylist,
+        updatePlaylist,
+        getPlaylistTracks,
         updateTrack,
         triggerFadeOut,
       }}

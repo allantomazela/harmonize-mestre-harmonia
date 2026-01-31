@@ -24,14 +24,16 @@ import {
   Music,
   Calendar as CalendarIcon,
   Database,
+  Sparkles,
 } from 'lucide-react'
-import { chartData, playlists } from '@/lib/mock-data'
+import { chartData } from '@/lib/mock-data'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 export default function Dashboard() {
   const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
-  const { queue } = useAudioPlayer()
+  const { queue, playlists } = useAudioPlayer()
 
   const localCount = queue.filter((t) => t.isLocal).length
   const storageUsagePercent = Math.min(100, (localCount / 100) * 100)
@@ -140,7 +142,7 @@ export default function Dashboard() {
             <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <Link to="/playlists">
+            <Link to="/library">
               <Button
                 variant="outline"
                 className="w-full justify-start hover:border-primary"
@@ -171,10 +173,7 @@ export default function Dashboard() {
       {/* Recent Playlists */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Playlists Recentes</h2>
-          <Button variant="link" className="text-primary">
-            Ver todas
-          </Button>
+          <h2 className="text-xl font-bold">Playlists</h2>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
           {playlists.map((playlist) => (
@@ -183,7 +182,12 @@ export default function Dashboard() {
               key={playlist.id}
               className="snap-start"
             >
-              <Card className="w-[200px] flex-shrink-0 hover:scale-[1.02] transition-transform duration-200 cursor-pointer border-border">
+              <Card className="w-[200px] flex-shrink-0 hover:scale-[1.02] transition-transform duration-200 cursor-pointer border-border relative">
+                {playlist.isSmart && (
+                  <Badge className="absolute top-2 right-2 z-10 bg-primary/20 text-primary hover:bg-primary/20 backdrop-blur-sm border-0">
+                    <Sparkles className="w-3 h-3" />
+                  </Badge>
+                )}
                 <div className="aspect-square w-full relative overflow-hidden rounded-t-lg bg-secondary">
                   <img
                     src={playlist.cover}
@@ -202,12 +206,17 @@ export default function Dashboard() {
                     {playlist.title}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {playlist.tracks} faixas • {playlist.duration}
+                    {playlist.isSmart ? 'Smart' : 'Manual'}
                   </p>
                 </div>
               </Card>
             </Link>
           ))}
+          {playlists.length === 0 && (
+            <div className="text-muted-foreground p-8 border border-dashed rounded-lg w-full text-center">
+              Você ainda não possui playlists. Crie uma na biblioteca.
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -24,8 +24,32 @@ export interface Folder {
   createdAt: number
 }
 
+export interface SmartPlaylistRule {
+  field: 'genre' | 'composer' | 'album' | 'year' | 'degree'
+  operator: 'equals' | 'contains'
+  value: string
+}
+
+export interface PlaylistItem {
+  trackId: string
+  addedBy?: string
+  addedAt?: number
+}
+
+export interface Playlist {
+  id: string
+  title: string
+  description?: string
+  isSmart: boolean
+  rules?: SmartPlaylistRule[]
+  items?: PlaylistItem[]
+  cover?: string
+  createdAt: number
+  collaborators?: string[]
+}
+
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -41,6 +65,9 @@ const initDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains('folders')) {
         db.createObjectStore('folders', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('playlists')) {
+        db.createObjectStore('playlists', { keyPath: 'id' })
       }
     }
   })
@@ -83,9 +110,13 @@ export const deleteTrack = async (id: string): Promise<void> => {
 export const clearAllTracks = async (): Promise<void> => {
   const db = await initDB()
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['tracks', 'folders'], 'readwrite')
+    const transaction = db.transaction(
+      ['tracks', 'folders', 'playlists'],
+      'readwrite',
+    )
     transaction.objectStore('tracks').clear()
     transaction.objectStore('folders').clear()
+    transaction.objectStore('playlists').clear()
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error)
   })
@@ -125,20 +156,87 @@ export const deleteFolder = async (id: string): Promise<void> => {
   })
 }
 
+// Playlists
+export const savePlaylist = async (playlist: Playlist): Promise<void> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('playlists', 'readwrite')
+    const store = transaction.objectStore('playlists')
+    const request = store.put(playlist)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export const getPlaylists = async (): Promise<Playlist[]> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('playlists', 'readonly')
+    const store = transaction.objectStore('playlists')
+    const request = store.getAll()
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export const deletePlaylist = async (id: string): Promise<void> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('playlists', 'readwrite')
+    const store = transaction.objectStore('playlists')
+    const request = store.delete(id)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 // Backup Utilities
 export const exportLibraryData = async (): Promise<string> => {
   const tracks = await getAllTracks()
   const folders = await getFolders()
+  const playlists = await getPlaylists()
 
-  // Export metadata only to avoid massive JSON files with base64 audio
   const tracksMetadata = tracks.map(({ file, ...meta }) => meta)
 
   return JSON.stringify({
     version: 1,
     createdAt: Date.now(),
     folders,
+    playlists,
     tracks: tracksMetadata,
   })
+}
+
+export const exportLibraryToCSV = async (): Promise<string> => {
+  const tracks = await getAllTracks()
+  const headers = [
+    'Title',
+    'Composer',
+    'Album',
+    'Genre',
+    'Duration',
+    'Degree',
+    'Ritual',
+    'Year',
+    'BPM',
+  ]
+  const rows = tracks.map((t) =>
+    [
+      t.title,
+      t.composer,
+      t.album || '',
+      t.genre || '',
+      t.duration,
+      t.degree || '',
+      t.ritual || '',
+      t.year || '',
+      t.bpm || '',
+    ]
+      .map((field) => `"${field}"`) // Escape quotes
+      .join(','),
+  )
+
+  return [headers.join(','), ...rows].join('\n')
 }
 
 export const importLibraryData = async (jsonString: string): Promise<void> => {
@@ -146,18 +244,16 @@ export const importLibraryData = async (jsonString: string): Promise<void> => {
     const data = JSON.parse(jsonString)
     if (!data.folders || !data.tracks) throw new Error('Invalid backup format')
 
-    // Restore Folders
     for (const folder of data.folders) {
       await saveFolder(folder)
     }
 
-    // Restore Track Metadata (Only updates existing tracks or adds entries without file)
-    // Note: Since we can't restore the file Blob from JSON easily without huge size,
-    // this effectively restores the organization. User might need to re-link files or
-    // we assume this is for metadata of existing files.
-    // For this implementation, we will update metadata of tracks if ID matches,
-    // or create "Ghost" tracks that need file repair (advanced feature),
-    // but here we just try to update metadata of what we can.
+    if (data.playlists) {
+      for (const playlist of data.playlists) {
+        await savePlaylist(playlist)
+      }
+    }
+
     const currentTracks = await getAllTracks()
     const currentMap = new Map(currentTracks.map((t) => [t.id, t]))
 

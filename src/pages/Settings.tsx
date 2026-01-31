@@ -18,11 +18,13 @@ import {
   Mail,
   UserPlus,
   Cloud,
+  FileText,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
   clearAllTracks,
   exportLibraryData,
+  exportLibraryToCSV,
   importLibraryData,
 } from '@/lib/storage'
 import { useToast } from '@/hooks/use-toast'
@@ -86,6 +88,32 @@ export default function Settings() {
         variant: 'destructive',
         title: 'Erro ao Exportar',
         description: 'Não foi possível gerar o arquivo de backup.',
+      })
+    }
+  }
+
+  const handleExportCSV = async () => {
+    try {
+      const data = await exportLibraryToCSV()
+      const blob = new Blob([data], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `harmonize-library-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({
+        title: 'CSV Exportado',
+        description: 'Lista de faixas exportada para CSV.',
+      })
+    } catch (e) {
+      console.error(e)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Exportar',
+        description: 'Não foi possível gerar o arquivo CSV.',
       })
     }
   }
@@ -263,11 +291,10 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-border p-4 rounded-lg space-y-3">
                   <div className="flex items-center gap-2 font-medium">
-                    <Download className="w-4 h-4 text-primary" /> Exportar
-                    Backup
+                    <Download className="w-4 h-4 text-primary" /> Exportar JSON
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Salva um arquivo JSON com sua organização de pastas e
+                    Salva um arquivo JSON completo com sua organização e
                     metadados.
                   </p>
                   <Button
@@ -275,11 +302,28 @@ export default function Settings() {
                     className="w-full"
                     onClick={handleExportBackup}
                   >
-                    Baixar Configuração
+                    Baixar Backup
                   </Button>
                 </div>
 
                 <div className="border border-border p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 font-medium">
+                    <FileText className="w-4 h-4 text-primary" /> Exportar CSV
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Exporta uma planilha simples com a lista de todas as
+                    músicas.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleExportCSV}
+                  >
+                    Baixar CSV
+                  </Button>
+                </div>
+
+                <div className="border border-border p-4 rounded-lg space-y-3 col-span-1 md:col-span-2">
                   <div className="flex items-center gap-2 font-medium">
                     <Upload className="w-4 h-4 text-primary" /> Importar Backup
                   </div>
@@ -289,7 +333,7 @@ export default function Settings() {
                   </p>
                   <div className="relative">
                     <Button variant="outline" className="w-full">
-                      Selecionar Arquivo
+                      Selecionar Arquivo JSON
                     </Button>
                     <input
                       type="file"

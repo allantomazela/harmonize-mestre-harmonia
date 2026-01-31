@@ -15,11 +15,13 @@ import {
   List,
   FolderInput,
   Folder,
+  Plus,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { saveTrack, deleteTrack } from '@/lib/storage'
 import { FolderSidebar } from '@/components/library/folder-sidebar'
 import { EditTrackDialog } from '@/components/library/edit-track-dialog'
+import { CreatePlaylistDialog } from '@/components/library/create-playlist-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
 
@@ -37,23 +39,52 @@ export default function Library() {
     currentTrack,
     isPlaying,
     togglePlay,
+    createPlaylist,
   } = useAudioPlayer()
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
   const [trackToEdit, setTrackToEdit] = useState<Track | null>(null)
+  const [isPlaylistDialogOpen, setIsPlaylistDialogOpen] = useState(false)
+  const [filters, setFilters] = useState<{
+    genres: string[]
+    composers: string[]
+    albums: string[]
+  }>({ genres: [], composers: [], albums: [] })
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const libraryTracks = library.filter((track) => {
+    // 1. Text Search
     const matchesSearch =
       track.title.toLowerCase().includes(search.toLowerCase()) ||
       track.composer.toLowerCase().includes(search.toLowerCase())
+
+    // 2. Folder
     const matchesFolder = currentFolderId
       ? track.folderId === currentFolderId
       : true
-    return matchesSearch && matchesFolder
+
+    // 3. Advanced Filters
+    const matchesGenre =
+      filters.genres.length === 0 ||
+      (track.genre && filters.genres.includes(track.genre))
+    const matchesComposer =
+      filters.composers.length === 0 ||
+      (track.composer && filters.composers.includes(track.composer))
+    const matchesAlbum =
+      filters.albums.length === 0 ||
+      (track.album && filters.albums.includes(track.album))
+
+    return (
+      matchesSearch &&
+      matchesFolder &&
+      matchesGenre &&
+      matchesComposer &&
+      matchesAlbum
+    )
   })
 
   const toggleSelection = (id: string) => {
@@ -178,6 +209,9 @@ export default function Library() {
         onSelectFolder={setCurrentFolderId}
         onCreateFolder={createFolder}
         onDeleteFolder={removeFolder}
+        tracks={library}
+        selectedFilters={filters}
+        onFilterChange={setFilters}
       />
 
       <div className="flex-1 flex flex-col gap-4 overflow-hidden">
@@ -186,14 +220,22 @@ export default function Library() {
             <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
               {currentFolderId
                 ? folders.find((f) => f.id === currentFolderId)?.name
-                : 'Todas as Músicas'}
+                : 'Acervo Geral'}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {libraryTracks.length} arquivos encontrados
+              {libraryTracks.length} faixas listadas
             </p>
           </div>
 
           <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
+            <Button
+              variant="outline"
+              className="mr-2 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => setIsPlaylistDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Criar Playlist
+            </Button>
+
             {currentFolderId && (
               <Button
                 onClick={() => handlePlayContext(0)}
@@ -218,7 +260,7 @@ export default function Library() {
 
             <div className="relative flex-1 md:w-64 ml-2">
               <Input
-                placeholder="Filtrar arquivos..."
+                placeholder="Buscar por nome..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="bg-card border-border"
@@ -333,9 +375,7 @@ export default function Library() {
                 ) : (
                   <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
                     <FolderInput className="w-12 h-12 opacity-20" />
-                    <p>
-                      Nenhum arquivo encontrado nesta pasta. Importe arquivos.
-                    </p>
+                    <p>Nenhum arquivo encontrado.</p>
                     <Button variant="outline" onClick={handleImportClick}>
                       Importar Agora
                     </Button>
@@ -345,7 +385,6 @@ export default function Library() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
-              {/* Grid view remains simple for now, can be updated later to match Row features if needed */}
               {libraryTracks.map((track, idx) => (
                 <div
                   key={track.id}
@@ -392,6 +431,11 @@ export default function Library() {
         isOpen={!!trackToEdit}
         onClose={() => setTrackToEdit(null)}
         onSave={updateTrack}
+      />
+      <CreatePlaylistDialog
+        isOpen={isPlaylistDialogOpen}
+        onClose={() => setIsPlaylistDialogOpen(false)}
+        onCreate={createPlaylist}
       />
     </div>
   )

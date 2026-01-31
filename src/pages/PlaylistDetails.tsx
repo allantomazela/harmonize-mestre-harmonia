@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,93 +8,55 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
-import { playlists, musicLibrary } from '@/lib/mock-data'
-import { ChevronLeft, Play, Sparkles, Plus, Clock, Wand2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
+import { ChevronLeft, Play, Sparkles, Clock, Share2, Wand2 } from 'lucide-react'
 import { TrackRow } from '@/components/track-row'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
+import { Badge } from '@/components/ui/badge'
+import { SharePlaylistDialog } from '@/components/library/share-playlist-dialog'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function PlaylistDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { toast } = useToast()
   const {
     currentTrack,
     isPlaying,
-    togglePlay,
     addToQueue,
     replaceQueue,
     skipToIndex,
+    playlists,
+    getPlaylistTracks,
   } = useAudioPlayer()
+  const [isShareOpen, setIsShareOpen] = useState(false)
 
+  // Find playlist in context
   const playlist = playlists.find((p) => p.id === id)
-  // Mock playlist tracks - in real app would query DB
-  const initialTracks =
-    playlist?.items
-      ?.map((itemId) => musicLibrary.find((m) => m.id === itemId))
-      .filter(Boolean) || []
-  const [tracks, setTracks] = useState(initialTracks)
-  const [smartCriteria, setSmartCriteria] = useState({
-    degree: '',
-    ritual: '',
-    tone: '',
-  })
+
+  // Resolve tracks (Manual or Smart)
+  const tracks = useMemo(
+    () => (playlist ? getPlaylistTracks(playlist) : []),
+    [playlist, getPlaylistTracks],
+  )
 
   if (!playlist) return <div className="p-6">Playlist não encontrada</div>
 
-  const handleSmartGenerate = () => {
-    // Advanced mock generation logic based on criteria
-    const filteredTracks = musicLibrary.filter((track) => {
-      const matchDegree = smartCriteria.degree
-        ? track.degree === smartCriteria.degree || track.degree === 'Todos'
-        : true
-      const matchRitual = smartCriteria.ritual
-        ? track.ritual === smartCriteria.ritual
-        : true
-      const matchTone = smartCriteria.tone
-        ? track.tone === smartCriteria.tone
-        : true
-      return matchDegree && matchRitual && matchTone
-    })
-
-    if (filteredTracks.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Nenhuma música encontrada',
-        description: 'Tente ajustar os critérios da Smart Playlist.',
-      })
-      return
-    }
-
-    setTracks(filteredTracks)
-    toast({
-      title: 'Playlist Gerada',
-      description: `Encontramos ${filteredTracks.length} faixas compatíveis no seu acervo local.`,
-    })
-  }
-
   const handlePlayAll = () => {
-    // @ts-expect-error
-    replaceQueue(tracks)
-    setTimeout(() => skipToIndex(0), 0)
+    if (tracks.length > 0) {
+      replaceQueue(tracks)
+      setTimeout(() => skipToIndex(0), 0)
+    }
   }
+
+  const durationStr = useMemo(() => {
+    // Basic calculation for demo - assume 3 min per track if duration unknown or use parsed duration
+    // Here just showing count for simplicity or reusing existing string if we had one
+    return `${tracks.length * 3} min (aprox.)`
+  }, [tracks])
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -106,168 +68,149 @@ export default function PlaylistDetails() {
         <ChevronLeft className="w-4 h-4 mr-2" /> Voltar
       </Button>
 
-      <div className="flex items-start justify-between">
-        <div className="flex gap-6">
-          <div className="w-40 h-40 rounded-lg bg-secondary overflow-hidden shadow-2xl">
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="w-48 h-48 rounded-lg bg-secondary overflow-hidden shadow-2xl shrink-0 border border-white/10">
+          {playlist.cover ? (
             <img
               src={playlist.cover}
               alt={playlist.title}
               className="w-full h-full object-cover"
             />
-          </div>
-          <div className="flex flex-col justify-end pb-2">
-            <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-2">
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-secondary">
+              <Wand2 className="w-16 h-16 text-muted-foreground/30" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col justify-end pb-2 flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
               Playlist
             </span>
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              {playlist.title}
-            </h1>
-            <p className="text-muted-foreground flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4" /> {playlist.duration} •{' '}
-              {tracks.length} faixas
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                className="bg-primary text-primary-foreground rounded-full px-8"
-                onClick={handlePlayAll}
+            {playlist.isSmart && (
+              <Badge
+                variant="secondary"
+                className="bg-primary/20 text-primary border-primary/30 gap-1"
               >
-                <Play className="w-4 h-4 mr-2 fill-current" /> Reproduzir
-              </Button>
+                <Sparkles className="w-3 h-3" /> Smart
+              </Badge>
+            )}
+          </div>
 
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="border-primary/50 text-primary hover:bg-primary/10 rounded-full"
-                  >
-                    <Wand2 className="w-4 h-4 mr-2" /> Smart Engine
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      Gerador de Playlist Inteligente
-                    </DialogTitle>
-                    <DialogDescription>
-                      O sistema selecionará automaticamente as melhores músicas
-                      locais baseadas nos parâmetros definidos.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Grau do Trabalho</Label>
-                      <Select
-                        onValueChange={(v) =>
-                          setSmartCriteria((p) => ({ ...p, degree: v }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Aprendiz">Aprendiz</SelectItem>
-                          <SelectItem value="Companheiro">
-                            Companheiro
-                          </SelectItem>
-                          <SelectItem value="Mestre">Mestre</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Ritual / Momento</Label>
-                        <Select
-                          onValueChange={(v) =>
-                            setSmartCriteria((p) => ({ ...p, ritual: v }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Qualquer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Abertura">Abertura</SelectItem>
-                            <SelectItem value="Elevação">Elevação</SelectItem>
-                            <SelectItem value="Exaltação">Exaltação</SelectItem>
-                            <SelectItem value="Encerramento">
-                              Encerramento
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tom Emocional</Label>
-                        <Select
-                          onValueChange={(v) =>
-                            setSmartCriteria((p) => ({ ...p, tone: v }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Qualquer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Solene">Solene</SelectItem>
-                            <SelectItem value="Introspectivo">
-                              Introspectivo
-                            </SelectItem>
-                            <SelectItem value="Alegre">Alegre</SelectItem>
-                            <SelectItem value="Fraternal">Fraternal</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={handleSmartGenerate} className="w-full">
-                      <Wand2 className="w-4 h-4 mr-2" /> Gerar Automaticamente
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+          <h1 className="text-4xl font-bold text-foreground mb-4">
+            {playlist.title}
+          </h1>
+
+          <div className="flex items-center gap-4 mb-4 text-muted-foreground text-sm">
+            <span className="flex items-center gap-1">
+              <Clock className="w-4 h-4" /> {durationStr}
+            </span>
+            <span>•</span>
+            <span>{tracks.length} faixas</span>
+          </div>
+
+          <div className="flex gap-2 flex-wrap items-center">
+            <Button
+              className="bg-primary text-primary-foreground rounded-full px-8 hover:bg-primary/90"
+              onClick={handlePlayAll}
+              disabled={tracks.length === 0}
+            >
+              <Play className="w-4 h-4 mr-2 fill-current" /> Reproduzir
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => setIsShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" /> Compartilhar
+            </Button>
+
+            {/* Collaborators Mock */}
+            <div className="ml-4 flex -space-x-2">
+              <Tooltip>
+                <TooltipTrigger>
+                  <Avatar className="w-8 h-8 border-2 border-background">
+                    <AvatarFallback className="bg-primary/20 text-xs">
+                      EU
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent>Você (Proprietário)</TooltipContent>
+              </Tooltip>
+              {playlist.collaborators?.map((c, i) => (
+                <Avatar key={i} className="w-8 h-8 border-2 border-background">
+                  <AvatarFallback className="text-xs">
+                    {c.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
+      {playlist.isSmart && playlist.rules && (
+        <div className="bg-secondary/10 border border-border p-4 rounded-lg">
+          <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-primary">
+            <Wand2 className="w-4 h-4" /> Regras Ativas
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {playlist.rules.map((rule, idx) => (
+              <Badge key={idx} variant="outline" className="bg-background">
+                {rule.field === 'composer' ? 'Artista' : rule.field}{' '}
+                {rule.operator === 'equals' ? 'é' : 'contém'} "{rule.value}"
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Card className="border-none shadow-none bg-transparent">
         <CardHeader className="px-0 pt-6">
           <CardTitle>Faixas</CardTitle>
           <CardDescription>
-            Lista de reprodução desta sequência.
+            {playlist.isSmart
+              ? 'Lista atualizada automaticamente com base nas regras.'
+              : 'Lista de reprodução manual.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 space-y-1">
-          {tracks.map(
-            (track, index) =>
-              track && (
+          {tracks.length > 0 ? (
+            tracks.map((track, index) => (
+              <div key={`${track.id}-${index}`} className="relative group">
                 <TrackRow
-                  // @ts-expect-error
-                  key={`${track.id}-${index}`}
-                  // @ts-expect-error
                   track={track}
                   index={index}
                   isPlaying={isPlaying}
                   isCurrent={currentTrack?.id === track.id}
                   onPlay={() => {
-                    // @ts-expect-error
                     replaceQueue(tracks)
                     setTimeout(() => skipToIndex(index), 0)
                   }}
-                  // @ts-expect-error
                   onAddToQueue={() => addToQueue([track])}
                 />
-              ),
+                {!playlist.isSmart && (
+                  <div className="absolute right-12 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-50 transition-opacity hidden md:block">
+                    Adicionado por Você
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+              <p>Nenhuma música encontrada para esta playlist.</p>
+            </div>
           )}
-          <div className="pt-4">
-            <Button
-              variant="ghost"
-              className="w-full border-dashed border border-border text-muted-foreground hover:text-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" /> Adicionar Faixa Manualmente
-            </Button>
-          </div>
         </CardContent>
       </Card>
+
+      <SharePlaylistDialog
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        playlistTitle={playlist.title}
+      />
     </div>
   )
 }
