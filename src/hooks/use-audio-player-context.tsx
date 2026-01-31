@@ -55,6 +55,7 @@ interface AudioPlayerContextType {
   fadeOutDuration: number
   fadeCurve: FadeCurve
   isLoading: boolean
+  isAutoPlay: boolean
   togglePlay: () => void
   playNext: () => void
   playPrev: () => void
@@ -63,6 +64,7 @@ interface AudioPlayerContextType {
   setFadeInDuration: (sec: number) => void
   setFadeOutDuration: (sec: number) => void
   setFadeCurve: (curve: FadeCurve) => void
+  toggleAutoPlay: () => void
   reorderQueue: (from: number, to: number) => void
   removeFromQueue: (index: number) => void
   skipToIndex: (index: number) => void
@@ -72,6 +74,7 @@ interface AudioPlayerContextType {
   createFolder: (name: string) => Promise<void>
   removeFolder: (id: string) => Promise<void>
   updateTrack: (track: Track) => Promise<void>
+  triggerFadeOut: () => void
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -88,9 +91,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.8)
   const [fadeInDuration, setFadeInDuration] = useState(1.5)
-  const [fadeOutDuration, setFadeOutDuration] = useState(1.5)
+  const [fadeOutDuration, setFadeOutDuration] = useState(3.0)
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential')
   const [isLoading, setIsLoading] = useState(false)
+  const [isAutoPlay, setIsAutoPlay] = useState(true)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -185,93 +189,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const currentTrack = queue[currentIndex]
 
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio()
-      audioRef.current.preload = 'auto'
-    }
-    const audio = audioRef.current
-
-    const updateTime = () => {
-      if (!Number.isNaN(audio.currentTime)) {
-        setCurrentTime(audio.currentTime)
-      }
-    }
-
-    const updateDuration = () => {
-      if (!Number.isNaN(audio.duration) && audio.duration !== Infinity) {
-        setDuration(audio.duration)
-      }
-    }
-
-    const handleEnded = () => {
-      playNext()
-    }
-
-    const handleWaiting = () => setIsLoading(true)
-    const handleCanPlay = () => setIsLoading(false)
-    const handleError = (e: Event) => {
-      console.error('Audio Playback Error:', e)
-      setIsLoading(false)
-      if (audio.error && audio.error.code !== 20) {
-        toast({
-          title: 'Erro na reprodução',
-          description: 'Não foi possível reproduzir o áudio.',
-          variant: 'destructive',
-        })
-      }
-    }
-
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('durationchange', updateDuration)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', handleEnded)
-    audio.addEventListener('waiting', handleWaiting)
-    audio.addEventListener('canplay', handleCanPlay)
-    audio.addEventListener('error', handleError)
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('durationchange', updateDuration)
-      audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', handleEnded)
-      audio.removeEventListener('waiting', handleWaiting)
-      audio.removeEventListener('canplay', handleCanPlay)
-      audio.removeEventListener('error', handleError)
-      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (audioRef.current && !fadeIntervalRef.current) {
-      audioRef.current.volume = Math.max(0, Math.min(1, volume))
-    }
-  }, [volume])
-
-  const safePlay = useCallback(async () => {
-    if (!audioRef.current) return
-
-    try {
-      playPromiseRef.current = audioRef.current.play()
-      await playPromiseRef.current
-      setIsPlaying(true)
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        console.error('Playback failed:', error)
-        setIsPlaying(false)
-      }
-    } finally {
-      playPromiseRef.current = null
-    }
-  }, [])
-
-  const safePause = useCallback(() => {
-    if (!audioRef.current) return
-    audioRef.current.pause()
-    setIsPlaying(false)
-  }, [])
-
+  // Playback control helpers
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
     switch (curve) {
       case 'exponential':
@@ -334,6 +252,29 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     [calculateCurve],
   )
 
+  const safePlay = useCallback(async () => {
+    if (!audioRef.current) return
+
+    try {
+      playPromiseRef.current = audioRef.current.play()
+      await playPromiseRef.current
+      setIsPlaying(true)
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Playback failed:', error)
+        setIsPlaying(false)
+      }
+    } finally {
+      playPromiseRef.current = null
+    }
+  }, [])
+
+  const safePause = useCallback(() => {
+    if (!audioRef.current) return
+    audioRef.current.pause()
+    setIsPlaying(false)
+  }, [])
+
   const loadAndPlay = useCallback(
     (track: Track) => {
       if (!audioRef.current) return
@@ -386,6 +327,102 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ],
   )
 
+  const playNext = useCallback(() => {
+    setQueue((currentQueue) => {
+      setCurrentIndex((prevIndex) => {
+        if (prevIndex < currentQueue.length - 1) {
+          const next = prevIndex + 1
+          loadAndPlay(currentQueue[next])
+          return next
+        }
+        setIsPlaying(false)
+        return prevIndex
+      })
+      return currentQueue
+    })
+  }, [loadAndPlay])
+
+  const toggleAutoPlay = useCallback(() => {
+    setIsAutoPlay((prev) => !prev)
+    toast({
+      title: !isAutoPlay ? 'Auto-Cue Ativado' : 'Modo Manual',
+      description: !isAutoPlay
+        ? 'A próxima música tocará automaticamente.'
+        : 'O player parará após a música atual.',
+    })
+  }, [isAutoPlay])
+
+  // Audio Event Listeners
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio()
+      audioRef.current.preload = 'auto'
+    }
+    const audio = audioRef.current
+
+    const updateTime = () => {
+      if (!Number.isNaN(audio.currentTime)) {
+        setCurrentTime(audio.currentTime)
+      }
+    }
+
+    const updateDuration = () => {
+      if (!Number.isNaN(audio.duration) && audio.duration !== Infinity) {
+        setDuration(audio.duration)
+      }
+    }
+
+    const handleEnded = () => {
+      if (isAutoPlay) {
+        playNext()
+      } else {
+        setIsPlaying(false)
+        // Optionally advance index but don't play?
+        // Radio style manual mode usually means just stop.
+      }
+    }
+
+    const handleWaiting = () => setIsLoading(true)
+    const handleCanPlay = () => setIsLoading(false)
+    const handleError = (e: Event) => {
+      console.error('Audio Playback Error:', e)
+      setIsLoading(false)
+      if (audio.error && audio.error.code !== 20) {
+        toast({
+          title: 'Erro na reprodução',
+          description: 'Não foi possível reproduzir o áudio.',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    audio.addEventListener('timeupdate', updateTime)
+    audio.addEventListener('durationchange', updateDuration)
+    audio.addEventListener('loadedmetadata', updateDuration)
+    audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('waiting', handleWaiting)
+    audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('error', handleError)
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime)
+      audio.removeEventListener('durationchange', updateDuration)
+      audio.removeEventListener('loadedmetadata', updateDuration)
+      audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('waiting', handleWaiting)
+      audio.removeEventListener('canplay', handleCanPlay)
+      audio.removeEventListener('error', handleError)
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    }
+  }, [isAutoPlay, playNext])
+
+  useEffect(() => {
+    if (audioRef.current && !fadeIntervalRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volume))
+    }
+  }, [volume])
+
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return
 
@@ -416,20 +453,17 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     safePause,
   ])
 
-  const playNext = useCallback(() => {
-    setQueue((currentQueue) => {
-      setCurrentIndex((prevIndex) => {
-        if (prevIndex < currentQueue.length - 1) {
-          const next = prevIndex + 1
-          loadAndPlay(currentQueue[next])
-          return next
-        }
-        setIsPlaying(false)
-        return prevIndex
+  const triggerFadeOut = useCallback(() => {
+    if (isPlaying && audioRef.current) {
+      performFade(0, fadeOutDuration, fadeCurve, () => {
+        safePause()
+        toast({
+          title: 'Fade Out Concluído',
+          description: 'A reprodução foi encerrada suavemente.',
+        })
       })
-      return currentQueue
-    })
-  }, [loadAndPlay])
+    }
+  }, [isPlaying, fadeOutDuration, fadeCurve, performFade, safePause])
 
   const playPrev = useCallback(() => {
     setQueue((currentQueue) => {
@@ -480,9 +514,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     })
     setCurrentIndex((prev) => {
       if (index < prev) return prev - 1
-      // If we remove the current track, we keep the index (which now points to next track),
-      // but we should probably handle stopping or playing next?
-      // For simplicity in this user story, we let the user play next manually if they delete current.
       return prev
     })
   }, [])
@@ -511,7 +542,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const replaceQueue = useCallback((tracks: Track[]) => {
     setQueue(tracks)
     setCurrentIndex(0)
-    // Don't auto play, let user action trigger or caller trigger skipToIndex
   }, [])
 
   return (
@@ -530,6 +560,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         fadeOutDuration,
         fadeCurve,
         isLoading,
+        isAutoPlay,
         togglePlay,
         playNext,
         playPrev,
@@ -538,6 +569,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setFadeInDuration,
         setFadeOutDuration,
         setFadeCurve,
+        toggleAutoPlay,
         reorderQueue,
         removeFromQueue,
         skipToIndex,
@@ -547,6 +579,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         createFolder,
         removeFolder,
         updateTrack,
+        triggerFadeOut,
       }}
     >
       {children}

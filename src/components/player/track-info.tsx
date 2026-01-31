@@ -10,103 +10,81 @@ interface TrackInfoProps {
 export function TrackInfo({ track, isLoading }: TrackInfoProps) {
   if (!track) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 py-8 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border h-80 w-80 mx-auto">
+      <div className="flex flex-col items-center justify-center space-y-4 py-8 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border h-64 w-64 md:h-80 md:w-80 mx-auto">
         <Disc className="w-16 h-16 opacity-50 animate-spin-slow" />
-        <p>Nenhuma música selecionada</p>
+        <p>Aguardando Seleção...</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center text-center space-y-8 animate-fade-in-up w-full max-w-lg mx-auto">
+    <div className="flex flex-col items-center text-center space-y-6 animate-fade-in-up w-full">
       {/* Cover Art Area */}
-      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group bg-card transition-all hover:scale-[1.02]">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-lg overflow-hidden shadow-2xl ring-2 ring-border group bg-card transition-all">
         {track.cover ? (
           <img
             src={track.cover}
             alt={track.title}
-            className="w-full h-full object-cover transition-transform duration-700"
+            className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-950 flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-black/20" />
+          <div className="w-full h-full bg-secondary flex items-center justify-center relative">
             {track.isLocal ? (
-              <FileAudio className="w-32 h-32 text-white/20" />
+              <FileAudio className="w-32 h-32 text-muted-foreground/30" />
             ) : (
-              <Music className="w-32 h-32 text-white/20" />
+              <Music className="w-32 h-32 text-muted-foreground/30" />
             )}
             {track.isLocal && (
-              <div className="absolute bottom-4 bg-black/50 px-3 py-1 rounded-full text-xs text-white/70 backdrop-blur-sm">
-                Arquivo Local
+              <div className="absolute bottom-4 bg-black/60 px-3 py-1 rounded-full text-xs text-primary backdrop-blur-sm border border-primary/20">
+                LOCAL SOURCE
               </div>
             )}
           </div>
         )}
 
         {isLoading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm z-10">
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-10">
             <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
 
-      {/* Main Metadata */}
-      <div className="space-y-2 w-full px-4">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight truncate">
+      {/* Main Metadata - High Contrast for Radio Console */}
+      <div className="space-y-1 w-full px-4">
+        <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-tight truncate text-primary uppercase drop-shadow-sm">
           {track.title}
         </h2>
-        <p className="text-xl text-muted-foreground font-medium truncate">
+        <p className="text-xl md:text-2xl text-white font-medium truncate tracking-wide">
           {track.composer}
         </p>
+        <p className="text-sm text-muted-foreground truncate">
+          {track.album || 'Single Track'}
+        </p>
+      </div>
 
-        {/* Detailed Technical Info Grid */}
-        <div className="grid grid-cols-2 gap-4 mt-6 w-full">
-          <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-secondary/40 border border-border/50 hover:bg-secondary/60 transition-colors">
-            <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-              <Activity className="w-4 h-4" />
-              <span className="text-xs uppercase tracking-wider font-semibold">
-                BPM
-              </span>
-            </div>
-            <span className="text-2xl font-bold font-mono text-foreground">
-              {track.bpm || '--'}
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-secondary/40 border border-border/50 hover:bg-secondary/60 transition-colors">
-            <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-              <Music2 className="w-4 h-4" />
-              <span className="text-xs uppercase tracking-wider font-semibold">
-                Tom
-              </span>
-            </div>
-            <span className="text-2xl font-bold font-mono text-foreground">
-              {track.tone || '--'}
-            </span>
-          </div>
-        </div>
-
-        {/* Additional Tags */}
-        <div className="flex justify-center flex-wrap gap-2 pt-4">
-          {track.ritual && (
-            <Badge
-              variant="outline"
-              className="px-3 py-1 border-primary/20 text-primary bg-primary/5"
-            >
-              {track.ritual}
-            </Badge>
-          )}
-          {track.degree && (
-            <Badge variant="outline" className="px-3 py-1">
-              {track.degree}
-            </Badge>
-          )}
-          {track.occasion && (
-            <Badge variant="secondary" className="px-3 py-1">
-              {track.occasion}
-            </Badge>
-          )}
-        </div>
+      {/* Technical Info Pills */}
+      <div className="flex justify-center flex-wrap gap-3 w-full">
+        {track.bpm && (
+          <Badge
+            variant="outline"
+            className="px-3 py-1.5 border-primary/30 text-primary bg-primary/5 uppercase tracking-wider font-mono"
+          >
+            <Activity className="w-3 h-3 mr-1.5" /> {track.bpm} BPM
+          </Badge>
+        )}
+        {track.tone && (
+          <Badge
+            variant="outline"
+            className="px-3 py-1.5 border-primary/30 text-primary bg-primary/5 uppercase tracking-wider font-mono"
+          >
+            <Music2 className="w-3 h-3 mr-1.5" /> {track.tone}
+          </Badge>
+        )}
+        {track.ritual && (
+          <Badge className="px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 uppercase tracking-wider">
+            {track.ritual}
+          </Badge>
+        )}
       </div>
     </div>
   )

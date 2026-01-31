@@ -1,9 +1,16 @@
 import { Track } from '@/hooks/use-audio-player-context'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { ListMusic, Play, GripVertical, Trash2 } from 'lucide-react'
+import {
+  ListMusic,
+  Play,
+  Trash2,
+  GripVertical,
+  Clock,
+  Disc,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Separator } from '@/components/ui/separator'
+import { useState } from 'react'
 
 interface QueueListProps {
   queue: Track[]
@@ -21,92 +28,118 @@ export function QueueList({
   onSkipTo,
 }: QueueListProps) {
   const current = queue[currentIndex]
-
-  // Calculate upcoming tracks
   const upcoming = queue
     .map((t, i) => ({ track: t, originalIndex: i }))
     .slice(currentIndex + 1)
 
+  // Simple Native DnD state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    // Optional: set drag image
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault() // Necessary to allow dropping
+    if (draggedIndex === null || draggedIndex === index) return
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+      // Find original indices
+      const sourceOriginalIndex = upcoming[draggedIndex].originalIndex
+      const targetOriginalIndex = upcoming[targetIndex].originalIndex
+      onReorder(sourceOriginalIndex, targetOriginalIndex)
+    }
+    setDraggedIndex(null)
+  }
+
   return (
-    <div className="flex flex-col h-full bg-card overflow-hidden">
-      <div className="p-4 border-b border-border flex items-center justify-between bg-card z-10">
-        <h3 className="font-bold flex items-center gap-2 text-lg">
-          <ListMusic className="w-5 h-5 text-primary" /> Fila
+    <div className="flex flex-col h-full bg-card border border-border rounded-xl overflow-hidden shadow-xl">
+      <div className="p-4 bg-secondary/30 border-b border-border flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2 text-lg text-primary uppercase tracking-widest">
+          <ListMusic className="w-5 h-5" /> On Air Queue
         </h3>
-        <span className="text-xs text-muted-foreground font-medium px-2 py-1 bg-secondary rounded-full">
-          {queue.length} faixas
+        <span className="text-[10px] font-bold text-black bg-primary px-2 py-1 rounded-sm uppercase">
+          {upcoming.length} Next
         </span>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 bg-black/20">
         <div className="p-4 space-y-6">
-          {/* Now Playing */}
+          {/* Now Playing - Highlighted */}
           {current && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Tocando Agora
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
+                Currently Playing
               </h4>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20 shadow-sm">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded bg-secondary overflow-hidden">
-                    {current.cover && (
-                      <img
-                        src={current.cover}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <div className="w-3 h-3 rounded-full bg-primary animate-pulse shadow-lg ring-2 ring-primary/30" />
-                  </div>
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border-l-4 border-primary shadow-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Disc className="w-24 h-24 animate-spin-slow" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-primary truncate">
+
+                <div className="relative z-10 w-12 h-12 rounded bg-secondary overflow-hidden shadow-lg">
+                  {current.cover && (
+                    <img
+                      src={current.cover}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 z-10">
+                  <p className="text-base font-bold text-primary truncate">
                     {current.title}
                   </p>
-                  <p className="text-xs text-primary/80 truncate">
+                  <p className="text-xs text-muted-foreground truncate font-medium">
                     {current.composer}
                   </p>
+                </div>
+                <div className="z-10 text-xs font-mono text-primary font-bold">
+                  PLAYING
                 </div>
               </div>
             </div>
           )}
 
-          {/* Next Up */}
+          {/* Upcoming List */}
           {upcoming.length > 0 ? (
             <div className="space-y-2">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                A Seguir
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
+                Up Next
               </h4>
               <div className="space-y-1">
-                {upcoming.map(({ track, originalIndex }, i) => (
+                {upcoming.map(({ track, originalIndex }, listIndex) => (
                   <div
                     key={`${track.id}-${originalIndex}`}
-                    className="group flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/40 transition-colors border border-transparent hover:border-border"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, listIndex)}
+                    onDragOver={(e) => handleDragOver(e, listIndex)}
+                    onDrop={(e) => handleDrop(e, listIndex)}
+                    className={cn(
+                      'group flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all cursor-grab active:cursor-grabbing',
+                      draggedIndex === listIndex
+                        ? 'bg-primary/20 border-primary dashed opacity-50'
+                        : 'bg-secondary/10 hover:bg-secondary/30 hover:border-primary/20',
+                    )}
                   >
-                    <span className="w-6 text-center text-xs text-muted-foreground group-hover:hidden">
-                      {i + 1}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 hidden group-hover:flex"
-                      onClick={() => onSkipTo(originalIndex)}
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                    </Button>
+                    <div className="text-muted-foreground group-hover:text-primary cursor-grab active:cursor-grabbing">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
 
-                    <div className="w-8 h-8 rounded bg-secondary overflow-hidden flex-shrink-0">
+                    <div className="w-10 h-10 rounded bg-secondary overflow-hidden flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                       {track.cover && (
                         <img
                           src={track.cover}
-                          className="w-full h-full object-cover opacity-80"
+                          className="w-full h-full object-cover"
                         />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                      <p className="text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">
                         {track.title}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
@@ -114,24 +147,41 @@ export function QueueList({
                       </p>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"
-                      onClick={() => onRemove(originalIndex)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="text-xs font-mono text-muted-foreground flex items-center gap-1 mr-2">
+                        <Clock className="w-3 h-3" /> {track.duration}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:text-primary hover:bg-primary/10"
+                        onClick={() => onSkipTo(originalIndex)}
+                        title="Play Now"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => onRemove(originalIndex)}
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
-              <ListMusic className="w-8 h-8 opacity-20" />
-              <p>Sua fila está vazia.</p>
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl">
+              <ListMusic className="w-10 h-10 opacity-20" />
+              <p className="font-medium">End of Transmission</p>
               <p className="text-xs opacity-60">
-                Adicione músicas da biblioteca para continuar tocando.
+                Drag tracks here or add from library
               </p>
             </div>
           )}
