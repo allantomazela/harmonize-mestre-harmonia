@@ -32,24 +32,21 @@ export function QueueList({
     .map((t, i) => ({ track: t, originalIndex: i }))
     .slice(currentIndex + 1)
 
-  // Simple Native DnD state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index)
     e.dataTransfer.effectAllowed = 'move'
-    // Optional: set drag image
   }
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault() // Necessary to allow dropping
+    e.preventDefault()
     if (draggedIndex === null || draggedIndex === index) return
   }
 
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
     if (draggedIndex !== null && draggedIndex !== targetIndex) {
-      // Find original indices
       const sourceOriginalIndex = upcoming[draggedIndex].originalIndex
       const targetOriginalIndex = upcoming[targetIndex].originalIndex
       onReorder(sourceOriginalIndex, targetOriginalIndex)
@@ -58,47 +55,46 @@ export function QueueList({
   }
 
   return (
-    <div className="flex flex-col h-full bg-card border border-border rounded-xl overflow-hidden shadow-xl">
-      <div className="p-4 bg-secondary/30 border-b border-border flex items-center justify-between">
-        <h3 className="font-bold flex items-center gap-2 text-lg text-primary uppercase tracking-widest">
-          <ListMusic className="w-5 h-5" /> On Air Queue
+    <div className="flex flex-col h-full bg-card/50 border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
+      <div className="p-5 bg-black/20 border-b border-white/5 flex items-center justify-between backdrop-blur-md">
+        <h3 className="font-bold flex items-center gap-2 text-sm text-primary uppercase tracking-widest">
+          <ListMusic className="w-4 h-4" /> On Air Queue
         </h3>
-        <span className="text-[10px] font-bold text-black bg-primary px-2 py-1 rounded-sm uppercase">
-          {upcoming.length} Next
+        <span className="text-[10px] font-bold text-black bg-primary px-2 py-0.5 rounded-sm uppercase tracking-wider">
+          {upcoming.length} Tracks
         </span>
       </div>
 
-      <ScrollArea className="flex-1 bg-black/20">
+      <ScrollArea className="flex-1 bg-transparent">
         <div className="p-4 space-y-6">
           {/* Now Playing - Highlighted */}
           {current && (
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 Currently Playing
               </h4>
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border-l-4 border-primary shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Disc className="w-24 h-24 animate-spin-slow" />
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20 shadow-glow-sm relative overflow-hidden group">
+                <div className="absolute right-0 top-0 bottom-0 w-1 bg-primary" />
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Disc className="w-20 h-20 animate-spin-slow" />
                 </div>
 
-                <div className="relative z-10 w-12 h-12 rounded bg-secondary overflow-hidden shadow-lg">
+                <div className="relative z-10 w-12 h-12 rounded-md bg-black/50 overflow-hidden shadow-lg border border-white/10 shrink-0">
                   {current.cover && (
                     <img
                       src={current.cover}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover opacity-90"
                     />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 z-10">
-                  <p className="text-base font-bold text-primary truncate">
+                  <p className="text-sm font-bold text-primary truncate">
                     {current.title}
                   </p>
                   <p className="text-xs text-muted-foreground truncate font-medium">
                     {current.composer}
                   </p>
-                </div>
-                <div className="z-10 text-xs font-mono text-primary font-bold">
-                  PLAYING
                 </div>
               </div>
             </div>
@@ -106,9 +102,9 @@ export function QueueList({
 
           {/* Upcoming List */}
           {upcoming.length > 0 ? (
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
-                Up Next
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                Coming Up
               </h4>
               <div className="space-y-1">
                 {upcoming.map(({ track, originalIndex }, listIndex) => (
@@ -122,14 +118,14 @@ export function QueueList({
                       'group flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all cursor-grab active:cursor-grabbing',
                       draggedIndex === listIndex
                         ? 'bg-primary/20 border-primary dashed opacity-50'
-                        : 'bg-secondary/10 hover:bg-secondary/30 hover:border-primary/20',
+                        : 'hover:bg-white/5 hover:border-white/5',
                     )}
                   >
-                    <div className="text-muted-foreground group-hover:text-primary cursor-grab active:cursor-grabbing">
+                    <div className="text-muted-foreground/50 group-hover:text-primary cursor-grab active:cursor-grabbing">
                       <GripVertical className="w-4 h-4" />
                     </div>
 
-                    <div className="w-10 h-10 rounded bg-secondary overflow-hidden flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <div className="w-10 h-10 rounded-md bg-secondary overflow-hidden flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                       {track.cover && (
                         <img
                           src={track.cover}
@@ -148,28 +144,28 @@ export function QueueList({
                     </div>
 
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="text-xs font-mono text-muted-foreground flex items-center gap-1 mr-2">
-                        <Clock className="w-3 h-3" /> {track.duration}
+                      <div className="text-[10px] font-mono text-muted-foreground mr-2">
+                        {track.duration}
                       </div>
 
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 hover:text-primary hover:bg-primary/10"
+                        className="h-7 w-7 hover:text-primary hover:bg-primary/10 rounded-full"
                         onClick={() => onSkipTo(originalIndex)}
                         title="Play Now"
                       >
-                        <Play className="w-4 h-4 fill-current" />
+                        <Play className="w-3.5 h-3.5 fill-current" />
                       </Button>
 
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 hover:text-destructive hover:bg-destructive/10"
+                        className="h-7 w-7 hover:text-destructive hover:bg-destructive/10 rounded-full"
                         onClick={() => onRemove(originalIndex)}
                         title="Remove"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -177,12 +173,14 @@ export function QueueList({
               </div>
             </div>
           ) : (
-            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl">
-              <ListMusic className="w-10 h-10 opacity-20" />
-              <p className="font-medium">End of Transmission</p>
-              <p className="text-xs opacity-60">
-                Drag tracks here or add from library
-              </p>
+            <div className="py-12 px-6 text-center text-muted-foreground flex flex-col items-center gap-4 border border-dashed border-white/10 rounded-xl bg-white/5">
+              <ListMusic className="w-8 h-8 opacity-20" />
+              <div>
+                <p className="font-medium text-sm">End of Queue</p>
+                <p className="text-xs opacity-50 mt-1">
+                  Drag tracks here to queue
+                </p>
+              </div>
             </div>
           )}
         </div>

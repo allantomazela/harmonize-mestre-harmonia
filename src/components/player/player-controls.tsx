@@ -54,149 +54,174 @@ export function PlayerControls({
   const remaining = Math.max(0, duration - progress)
 
   return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto bg-card p-6 rounded-xl border border-border shadow-2xl relative overflow-hidden">
-      {/* Accents */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+    <div className="w-full max-w-4xl mx-auto">
+      {/* Main Console Box */}
+      <div className="bg-card border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        {/* Top Accent Line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
 
-      {/* Timers & Progress - Radio Console Style */}
-      <div className="grid grid-cols-[auto_1fr_auto] gap-6 items-center">
-        <div className="text-center w-24">
-          <span className="text-xs text-muted-foreground uppercase tracking-widest block mb-1">
-            Elapsed
-          </span>
-          <span className="text-2xl font-mono font-bold text-primary block">
-            {formatTime(progress)}
-          </span>
-        </div>
+        {/* Progress Section */}
+        <div className="mb-8 space-y-2">
+          <div className="flex justify-between items-end px-1">
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    'w-2 h-2 rounded-full',
+                    isPlaying ? 'bg-primary animate-pulse' : 'bg-muted',
+                  )}
+                />
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
+                  Elapsed
+                </span>
+              </div>
+              <span className="text-2xl font-mono font-bold text-white tracking-tight">
+                {formatTime(progress)}
+              </span>
+            </div>
 
-        <div className="relative h-12 flex items-center group">
-          <div className="absolute inset-0 bg-secondary/30 rounded-full overflow-hidden h-3 m-auto border border-white/5">
-            {/* Visual Waveform placeholder lines */}
-            <div
-              className="w-full h-full opacity-20"
-              style={{
-                backgroundImage:
-                  'linear-gradient(90deg, transparent 50%, #fff 50%)',
-                backgroundSize: '4px 100%',
-              }}
+            <div className="text-right">
+              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] block mb-0.5">
+                Remaining
+              </span>
+              <span
+                className={cn(
+                  'text-2xl font-mono font-bold tracking-tight transition-colors',
+                  remaining < 10 && remaining > 0
+                    ? 'text-destructive animate-pulse'
+                    : 'text-muted-foreground',
+                )}
+              >
+                -{formatTime(remaining)}
+              </span>
+            </div>
+          </div>
+
+          <div className="relative h-6 flex items-center group">
+            <Slider
+              value={[progress]}
+              max={duration || 100}
+              step={1}
+              onValueChange={(v) => onSeek(v[0])}
+              className="cursor-pointer relative z-10 [&_.bg-primary]:bg-primary [&_.bg-primary]:shadow-[0_0_15px_rgba(191,255,0,0.5)] [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-primary [&_[role=slider]]:bg-black [&_[role=slider]]:shadow-[0_0_10px_rgba(191,255,0,0.5)]"
             />
           </div>
-          <Slider
-            value={[progress]}
-            max={duration || 100}
-            step={1}
-            onValueChange={(v) => onSeek(v[0])}
-            className="cursor-pointer relative z-10 [&_.bg-primary]:bg-primary [&_.bg-primary]:shadow-[0_0_10px_rgba(132,204,22,0.5)]"
-          />
         </div>
 
-        <div className="text-center w-24">
-          <span className="text-xs text-muted-foreground uppercase tracking-widest block mb-1">
-            Remaining
-          </span>
-          <span className="text-2xl font-mono font-bold text-destructive block animate-pulse">
-            -{formatTime(remaining)}
-          </span>
-        </div>
-      </div>
+        {/* Controls Layout */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4">
+          {/* Left: Mode Toggles */}
+          <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+            <Button
+              variant="outline"
+              onClick={onToggleAutoPlay}
+              className={cn(
+                'h-12 px-5 border-2 transition-all duration-300 relative overflow-hidden',
+                isAutoPlay
+                  ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary shadow-[0_0_15px_-5px_hsl(var(--primary))]'
+                  : 'border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-white',
+              )}
+            >
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1">
+                  Auto Cue
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={cn(
+                      'w-1.5 h-1.5 rounded-full',
+                      isAutoPlay ? 'bg-primary' : 'bg-muted-foreground',
+                    )}
+                  />
+                  <span className="text-xs font-bold">
+                    {isAutoPlay ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+              </div>
+            </Button>
 
-      {/* Console Controls */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-4">
-        {/* Left: Modes */}
-        <div className="flex gap-4">
-          <Button
-            variant={isAutoPlay ? 'default' : 'outline'}
-            size="sm"
-            onClick={onToggleAutoPlay}
-            className={cn(
-              'min-w-[100px] border-primary/20 font-bold uppercase tracking-wider text-xs h-10',
-              isAutoPlay
-                ? 'bg-primary text-black hover:bg-primary/90'
-                : 'text-muted-foreground bg-transparent hover:text-primary hover:border-primary',
-            )}
-          >
-            {isAutoPlay ? (
-              <>
-                <Repeat className="w-3 h-3 mr-2" /> Auto Cue
-              </>
-            ) : (
-              <>
-                <Power className="w-3 h-3 mr-2" /> Manual
-              </>
-            )}
-          </Button>
+            <Button
+              variant="outline"
+              onClick={onFadeOut}
+              className="h-12 px-5 border-2 border-border bg-transparent text-muted-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-300 group"
+            >
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1 group-hover:text-destructive transition-colors">
+                  Output
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  <span className="text-xs font-bold">FADE</span>
+                </div>
+              </div>
+            </Button>
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onFadeOut}
-            className="min-w-[100px] border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive font-bold uppercase tracking-wider text-xs h-10"
-          >
-            <TrendingDown className="w-3 h-3 mr-2" /> Fade Out
-          </Button>
-        </div>
+          {/* Center: Transport Controls */}
+          <div className="flex items-center gap-6 md:gap-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-14 w-14 rounded-full text-muted-foreground hover:text-white hover:bg-white/5 transition-transform hover:scale-110 active:scale-95"
+              onClick={onPrev}
+              disabled={isLoading}
+            >
+              <SkipBack className="w-8 h-8 fill-current" />
+            </Button>
 
-        {/* Center: Transport */}
-        <div className="flex items-center gap-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 rounded-full border border-border bg-secondary/20 hover:bg-secondary hover:text-white transition-all"
-            onClick={onPrev}
-            disabled={isLoading}
-          >
-            <SkipBack className="w-6 h-6 fill-current" />
-          </Button>
+            <Button
+              className={cn(
+                'h-24 w-24 rounded-full transition-all duration-300 flex items-center justify-center border-4 relative overflow-hidden',
+                isPlaying
+                  ? 'bg-transparent border-primary text-primary shadow-[0_0_30px_rgba(191,255,0,0.3)] hover:scale-105 hover:bg-primary/10'
+                  : 'bg-primary border-primary text-black shadow-[0_0_40px_rgba(191,255,0,0.6)] hover:scale-105 hover:shadow-[0_0_60px_rgba(191,255,0,0.8)]',
+              )}
+              onClick={onTogglePlay}
+              disabled={isLoading}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+              {isPlaying ? (
+                <Pause className="w-10 h-10 fill-current relative z-10" />
+              ) : (
+                <Play className="w-10 h-10 fill-current ml-1.5 relative z-10" />
+              )}
+            </Button>
 
-          <Button
-            className={cn(
-              'h-20 w-20 rounded-full shadow-[0_0_30px_rgba(132,204,22,0.3)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center border-4',
-              isPlaying
-                ? 'bg-transparent border-primary text-primary hover:bg-primary hover:text-black'
-                : 'bg-primary border-primary text-black hover:bg-primary/90',
-            )}
-            onClick={onTogglePlay}
-            disabled={isLoading}
-          >
-            {isPlaying ? (
-              <Pause className="w-10 h-10 fill-current" />
-            ) : (
-              <Play className="w-10 h-10 fill-current ml-1" />
-            )}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-14 w-14 rounded-full text-muted-foreground hover:text-white hover:bg-white/5 transition-transform hover:scale-110 active:scale-95"
+              onClick={onNext}
+              disabled={isLoading}
+            >
+              <SkipForward className="w-8 h-8 fill-current" />
+            </Button>
+          </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 rounded-full border border-border bg-secondary/20 hover:bg-secondary hover:text-white transition-all"
-            onClick={onNext}
-            disabled={isLoading}
-          >
-            <SkipForward className="w-6 h-6 fill-current" />
-          </Button>
-        </div>
-
-        {/* Right: Volume */}
-        <div className="flex items-center gap-3 w-48 bg-secondary/20 p-2 rounded-lg border border-border">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-white rounded-full"
-            onClick={() => onVolumeChange(volume === 0 ? 0.5 : 0)}
-          >
-            {volume === 0 ? (
-              <VolumeX className="w-5 h-5" />
-            ) : (
-              <Volume2 className="w-5 h-5" />
-            )}
-          </Button>
-          <Slider
-            value={[volume]}
-            max={1}
-            step={0.01}
-            onValueChange={(v) => onVolumeChange(v[0])}
-            className="cursor-pointer"
-          />
+          {/* Right: Volume */}
+          <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+            <div className="flex items-center gap-3 bg-secondary/30 p-3 rounded-xl border border-white/5 h-12 w-full md:w-40">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full shrink-0"
+                onClick={() => onVolumeChange(volume === 0 ? 0.5 : 0)}
+              >
+                {volume === 0 ? (
+                  <VolumeX className="w-4 h-4" />
+                ) : (
+                  <Volume2 className="w-4 h-4" />
+                )}
+              </Button>
+              <Slider
+                value={[volume]}
+                max={1}
+                step={0.01}
+                onValueChange={(v) => onVolumeChange(v[0])}
+                className="cursor-pointer"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

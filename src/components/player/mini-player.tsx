@@ -39,14 +39,13 @@ export function MiniPlayer() {
   const progressPercent = duration ? (currentTime / duration) * 100 : 0
 
   return (
-    <div className="fixed bottom-[58px] md:bottom-0 left-0 md:left-64 right-0 bg-background/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 transition-transform duration-300 animate-slide-up">
-      {/* Progress Bar (slim, on top) */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-secondary group cursor-pointer">
+    <div className="fixed bottom-[58px] md:bottom-0 left-0 md:left-64 right-0 bg-black/90 backdrop-blur-xl border-t border-primary/20 shadow-[0_-4px_30px_rgba(0,0,0,0.5)] z-40 transition-transform duration-300 animate-slide-up">
+      {/* Slim Neon Progress Bar */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/10 group cursor-pointer overflow-hidden">
         <div
-          className="h-full bg-primary transition-all duration-100 ease-linear relative"
+          className="h-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] transition-all duration-100 ease-linear relative"
           style={{ width: `${progressPercent}%` }}
         />
-        {/* Invisible Slider for interaction */}
         <Slider
           value={[currentTime]}
           max={duration || 100}
@@ -58,8 +57,8 @@ export function MiniPlayer() {
 
       <div className="flex items-center justify-between p-3 gap-4 h-20">
         {/* Track Info */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="h-14 w-14 rounded-md bg-secondary flex-shrink-0 overflow-hidden relative border border-border/50 shadow-sm group">
+        <div className="flex items-center gap-3 flex-1 min-w-0 group">
+          <div className="h-12 w-12 rounded-sm bg-secondary flex-shrink-0 overflow-hidden relative border border-white/10 shadow-lg">
             {currentTrack.cover ? (
               <img
                 src={currentTrack.cover}
@@ -71,21 +70,21 @@ export function MiniPlayer() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-secondary">
-                <Music className="w-6 h-6 text-muted-foreground" />
+                <Music className="w-5 h-5 text-muted-foreground" />
               </div>
             )}
             <Link
               to="/player"
-              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"
             >
-              <Maximize2 className="w-5 h-5 text-white" />
+              <Maximize2 className="w-5 h-5 text-primary" />
             </Link>
           </div>
           <div className="flex flex-col min-w-0 justify-center">
-            <h4 className="font-semibold text-sm truncate leading-tight hover:text-primary transition-colors">
+            <h4 className="font-bold text-sm truncate leading-tight hover:text-primary transition-colors text-white">
               <Link to="/player">{currentTrack.title}</Link>
             </h4>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-muted-foreground truncate font-medium">
               {currentTrack.composer}
             </p>
           </div>
@@ -96,7 +95,7 @@ export function MiniPlayer() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 hidden sm:inline-flex text-muted-foreground hover:text-foreground hover:bg-transparent"
+            className="h-9 w-9 hidden sm:inline-flex text-muted-foreground hover:text-white hover:bg-transparent transition-transform hover:scale-110"
             onClick={playPrev}
             disabled={isLoading}
           >
@@ -106,10 +105,10 @@ export function MiniPlayer() {
           <Button
             size="icon"
             className={cn(
-              'h-10 w-10 rounded-full shadow-md hover:scale-105 active:scale-95 transition-all',
+              'h-10 w-10 rounded-full shadow-[0_0_15px_rgba(191,255,0,0.3)] hover:scale-105 active:scale-95 transition-all border border-primary/50',
               isPlaying
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-primary text-primary-foreground',
+                ? 'bg-transparent text-primary hover:bg-primary hover:text-black'
+                : 'bg-primary text-black hover:bg-primary/90',
             )}
             onClick={togglePlay}
             disabled={isLoading}
@@ -126,7 +125,7 @@ export function MiniPlayer() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-transparent"
+            className="h-9 w-9 text-muted-foreground hover:text-white hover:bg-transparent transition-transform hover:scale-110"
             onClick={playNext}
             disabled={isLoading}
           >
@@ -141,13 +140,13 @@ export function MiniPlayer() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-primary"
+                className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-transparent"
               >
                 <ListMusic className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-md p-0">
-              <div className="h-full pt-6">
+            <SheetContent className="w-full sm:max-w-md p-0 border-l border-border bg-background">
+              <div className="h-full pt-10">
                 <QueueList
                   queue={queue}
                   currentIndex={currentIndex}

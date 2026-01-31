@@ -60,24 +60,25 @@ export default function Player() {
   } = useAudioPlayer()
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] gap-4 p-2 md:p-6 max-w-[1800px] mx-auto animate-fade-in relative bg-background">
-      {/* Background Decor */}
-      <div className="absolute inset-0 bg-radial-gradient from-primary/5 to-transparent pointer-events-none" />
+    <div className="flex flex-col h-[calc(100vh-4rem)] gap-4 p-4 md:p-6 max-w-[1800px] mx-auto animate-fade-in relative bg-background overflow-hidden">
+      {/* Background Atmosphere */}
+      <div className="absolute top-[-20%] left-[20%] w-[60%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
-      {/* Header / Top Bar */}
-      <div className="flex items-center justify-between z-10 w-full mb-2">
+      {/* Header */}
+      <div className="flex items-center justify-between z-10 w-full mb-2 shrink-0">
         <Button
           variant="ghost"
           onClick={() => navigate(-1)}
-          className="text-muted-foreground hover:text-primary gap-2"
+          className="text-muted-foreground hover:text-primary gap-2 hover:bg-transparent"
         >
-          <ChevronDown className="w-5 h-5" /> Minimize
+          <ChevronDown className="w-5 h-5" />
+          <span className="hidden sm:inline">Minimize</span>
         </Button>
 
         <div className="flex items-center gap-3">
           <Badge
             variant="outline"
-            className="hidden md:flex gap-2 px-3 py-1 border-primary/50 text-primary bg-primary/5 uppercase tracking-widest font-bold"
+            className="hidden md:flex gap-2 px-3 py-1 border-primary/30 text-primary bg-primary/5 uppercase tracking-widest font-bold text-[10px]"
           >
             <Radio className="w-3 h-3 animate-pulse" /> Live Broadcast
           </Badge>
@@ -86,9 +87,9 @@ export default function Player() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 border-primary/30 hover:bg-primary/10 hover:text-primary font-bold uppercase tracking-wider"
+              className="gap-2 border-primary/30 bg-black/50 hover:bg-primary/10 hover:text-primary hover:border-primary font-bold uppercase tracking-wider text-xs"
             >
-              <Mic2 className="w-4 h-4" /> Studio Mode
+              <Mic2 className="w-3 h-3" /> Studio Mode
             </Button>
           </Link>
 
@@ -97,21 +98,23 @@ export default function Player() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-primary"
+                className="text-muted-foreground hover:text-primary hover:bg-transparent"
               >
                 <Settings2 className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 border-border bg-card">
+            <PopoverContent className="w-80 border-border bg-card shadow-2xl">
               <div className="space-y-4">
-                <h4 className="font-medium text-sm flex items-center gap-2 text-primary">
-                  <Activity className="w-4 h-4" /> Crossfade Settings
+                <h4 className="font-medium text-sm flex items-center gap-2 text-primary uppercase tracking-wider">
+                  <Activity className="w-4 h-4" /> Crossfade Engine
                 </h4>
-                <div className="space-y-3">
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <Label>Fade In (Intro)</Label>
-                      <span className="text-xs text-muted-foreground">
+                      <Label className="text-xs text-muted-foreground uppercase">
+                        Fade In (Intro)
+                      </Label>
+                      <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">
                         {fadeInDuration}s
                       </span>
                     </div>
@@ -123,10 +126,12 @@ export default function Player() {
                       onValueChange={(v) => setFadeInDuration(v[0])}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <Label>Fade Out (Outro)</Label>
-                      <span className="text-xs text-muted-foreground">
+                      <Label className="text-xs text-muted-foreground uppercase">
+                        Fade Out (Outro)
+                      </Label>
+                      <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">
                         {fadeOutDuration}s
                       </span>
                     </div>
@@ -139,18 +144,20 @@ export default function Player() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Curve</Label>
+                    <Label className="text-xs text-muted-foreground uppercase">
+                      Curve Model
+                    </Label>
                     <Select
                       value={fadeCurve}
                       onValueChange={(v: any) => setFadeCurve(v)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-secondary/50 border-border">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="linear">Linear</SelectItem>
                         <SelectItem value="exponential">Exponential</SelectItem>
-                        <SelectItem value="smooth">Smooth</SelectItem>
+                        <SelectItem value="smooth">Smooth (S-Curve)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -161,12 +168,16 @@ export default function Player() {
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" className="lg:hidden" size="icon">
-                <Share2 className="w-5 h-5 text-muted-foreground" />
+              <Button
+                variant="ghost"
+                className="lg:hidden hover:bg-transparent hover:text-primary"
+                size="icon"
+              >
+                <Share2 className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-md p-0">
-              <div className="h-full pt-6">
+            <SheetContent className="w-full sm:max-w-md p-0 border-l border-border bg-background">
+              <div className="h-full pt-10">
                 <QueueList
                   queue={queue}
                   currentIndex={currentIndex}
@@ -180,31 +191,35 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Main Console Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 lg:gap-12 items-center justify-center relative z-10 w-full">
+      {/* Main Layout */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-8 lg:gap-12 items-center justify-center relative z-10 w-full min-h-0">
         {/* Left Side: Deck / Visuals */}
-        <div className="flex-1 w-full max-w-2xl flex flex-col justify-center gap-8 lg:gap-12">
-          <TrackInfo track={currentTrack} isLoading={isLoading} />
+        <div className="flex-1 w-full max-w-3xl flex flex-col justify-center gap-8 lg:gap-10 h-full overflow-y-auto lg:overflow-visible py-4 scrollbar-none">
+          <div className="flex-1 flex items-center justify-center min-h-[300px]">
+            <TrackInfo track={currentTrack} isLoading={isLoading} />
+          </div>
 
-          <PlayerControls
-            isPlaying={isPlaying}
-            isLoading={isLoading}
-            isAutoPlay={isAutoPlay}
-            onTogglePlay={togglePlay}
-            onToggleAutoPlay={toggleAutoPlay}
-            onNext={playNext}
-            onPrev={playPrev}
-            onFadeOut={triggerFadeOut}
-            progress={currentTime}
-            duration={duration}
-            onSeek={seek}
-            volume={volume}
-            onVolumeChange={setVolume}
-          />
+          <div className="shrink-0 w-full">
+            <PlayerControls
+              isPlaying={isPlaying}
+              isLoading={isLoading}
+              isAutoPlay={isAutoPlay}
+              onTogglePlay={togglePlay}
+              onToggleAutoPlay={toggleAutoPlay}
+              onNext={playNext}
+              onPrev={playPrev}
+              onFadeOut={triggerFadeOut}
+              progress={currentTime}
+              duration={duration}
+              onSeek={seek}
+              volume={volume}
+              onVolumeChange={setVolume}
+            />
+          </div>
         </div>
 
-        {/* Right Side: Queue Management (Console Sidecar) */}
-        <div className="hidden lg:flex w-96 flex-col h-full max-h-[700px]">
+        {/* Right Side: Queue Management (Desktop) */}
+        <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-col h-full max-h-[750px] shrink-0">
           <QueueList
             queue={queue}
             currentIndex={currentIndex}
