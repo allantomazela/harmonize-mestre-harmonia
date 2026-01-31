@@ -43,6 +43,13 @@ export default function PlaylistDetails() {
     [playlist, getPlaylistTracks],
   )
 
+  // NOTE: Hooks must be called unconditionally. Moved useMemo before the early return.
+  const durationStr = useMemo(() => {
+    // Basic calculation for demo - assume 3 min per track if duration unknown or use parsed duration
+    // Here just showing count for simplicity or reusing existing string if we had one
+    return `${tracks.length * 3} min (aprox.)`
+  }, [tracks])
+
   if (!playlist) return <div className="p-6">Playlist não encontrada</div>
 
   const handlePlayAll = () => {
@@ -51,12 +58,6 @@ export default function PlaylistDetails() {
       setTimeout(() => skipToIndex(0), 0)
     }
   }
-
-  const durationStr = useMemo(() => {
-    // Basic calculation for demo - assume 3 min per track if duration unknown or use parsed duration
-    // Here just showing count for simplicity or reusing existing string if we had one
-    return `${tracks.length * 3} min (aprox.)`
-  }, [tracks])
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
