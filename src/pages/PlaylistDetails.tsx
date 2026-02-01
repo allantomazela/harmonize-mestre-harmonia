@@ -8,7 +8,16 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
-import { ChevronLeft, Play, Sparkles, Clock, Share2, Wand2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  Play,
+  Sparkles,
+  Clock,
+  Share2,
+  Wand2,
+  RefreshCcw,
+  Book,
+} from 'lucide-react'
 import { TrackRow } from '@/components/track-row'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +28,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ritualTemplates } from '@/lib/ritual-templates'
 
 export default function PlaylistDetails() {
   const { id } = useParams()
@@ -31,22 +48,19 @@ export default function PlaylistDetails() {
     skipToIndex,
     playlists,
     getPlaylistTracks,
+    updatePlaylist,
   } = useAudioPlayer()
   const [isShareOpen, setIsShareOpen] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
-  // Find playlist in context
   const playlist = playlists.find((p) => p.id === id)
 
-  // Resolve tracks (Manual or Smart)
   const tracks = useMemo(
     () => (playlist ? getPlaylistTracks(playlist) : []),
     [playlist, getPlaylistTracks],
   )
 
-  // NOTE: Hooks must be called unconditionally. Moved useMemo before the early return.
   const durationStr = useMemo(() => {
-    // Basic calculation for demo - assume 3 min per track if duration unknown or use parsed duration
-    // Here just showing count for simplicity or reusing existing string if we had one
     return `${tracks.length * 3} min (aprox.)`
   }, [tracks])
 
@@ -57,6 +71,37 @@ export default function PlaylistDetails() {
       replaceQueue(tracks)
       setTimeout(() => skipToIndex(0), 0)
     }
+  }
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (playlist.isSmart) return
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    if (
+      draggedIndex === null ||
+      draggedIndex === targetIndex ||
+      !playlist.items
+    )
+      return
+
+    const newItems = [...playlist.items]
+    const [moved] = newItems.splice(draggedIndex, 1)
+    newItems.splice(targetIndex, 0, moved)
+
+    await updatePlaylist({ ...playlist, items: newItems })
+    setDraggedIndex(null)
+  }
+
+  const handleRitualAssociation = async (ritualId: string) => {
+    await updatePlaylist({ ...playlist, ritualTemplateId: ritualId })
   }
 
   return (
@@ -109,6 +154,26 @@ export default function PlaylistDetails() {
             </span>
             <span>•</span>
             <span>{tracks.length} faixas</span>
+            <span>•</span>
+            <div className="flex items-center gap-2">
+              <Book className="w-3 h-3" />
+              <Select
+                value={playlist.ritualTemplateId || ''}
+                onValueChange={handleRitualAssociation}
+              >
+                <SelectTrigger className="h-6 w-[180px] text-xs">
+                  <SelectValue placeholder="Associar Ritual..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {ritualTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex gap-2 flex-wrap items-center">
@@ -127,27 +192,6 @@ export default function PlaylistDetails() {
             >
               <Share2 className="w-4 h-4 mr-2" /> Compartilhar
             </Button>
-
-            {/* Collaborators Mock */}
-            <div className="ml-4 flex -space-x-2">
-              <Tooltip>
-                <TooltipTrigger>
-                  <Avatar className="w-8 h-8 border-2 border-background">
-                    <AvatarFallback className="bg-primary/20 text-xs">
-                      EU
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent>Você (Proprietário)</TooltipContent>
-              </Tooltip>
-              {playlist.collaborators?.map((c, i) => (
-                <Avatar key={i} className="w-8 h-8 border-2 border-background">
-                  <AvatarFallback className="text-xs">
-                    {c.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -173,31 +217,29 @@ export default function PlaylistDetails() {
           <CardTitle>Faixas</CardTitle>
           <CardDescription>
             {playlist.isSmart
-              ? 'Lista atualizada automaticamente com base nas regras.'
-              : 'Lista de reprodução manual.'}
+              ? 'Lista atualizada automaticamente. Arraste indisponível.'
+              : 'Arraste para reordenar.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 space-y-1">
           {tracks.length > 0 ? (
             tracks.map((track, index) => (
-              <div key={`${track.id}-${index}`} className="relative group">
-                <TrackRow
-                  track={track}
-                  index={index}
-                  isPlaying={isPlaying}
-                  isCurrent={currentTrack?.id === track.id}
-                  onPlay={() => {
-                    replaceQueue(tracks)
-                    setTimeout(() => skipToIndex(index), 0)
-                  }}
-                  onAddToQueue={() => addToQueue([track])}
-                />
-                {!playlist.isSmart && (
-                  <div className="absolute right-12 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-50 transition-opacity hidden md:block">
-                    Adicionado por Você
-                  </div>
-                )}
-              </div>
+              <TrackRow
+                key={`${track.id}-${index}`}
+                track={track}
+                index={index}
+                isPlaying={isPlaying}
+                isCurrent={currentTrack?.id === track.id}
+                onPlay={() => {
+                  replaceQueue(tracks)
+                  setTimeout(() => skipToIndex(index), 0)
+                }}
+                onAddToQueue={() => addToQueue([track])}
+                draggable={!playlist.isSmart}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+              />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">

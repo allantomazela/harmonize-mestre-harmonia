@@ -18,7 +18,6 @@ import {
   Activity,
   ChevronDown,
   Mic2,
-  Radio,
   Share2,
   Waves,
   SlidersVertical,
@@ -34,8 +33,6 @@ import {
 } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
 
 export default function Player() {
   const navigate = useNavigate()
@@ -73,10 +70,8 @@ export default function Player() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] gap-4 p-4 md:p-6 max-w-[1800px] mx-auto animate-fade-in relative bg-background overflow-hidden">
-      {/* Background Atmosphere */}
       <div className="absolute top-[-20%] left-[20%] w-[60%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
-      {/* Header */}
       <div className="flex items-center justify-between z-10 w-full mb-2 shrink-0">
         <Button
           variant="ghost"
@@ -108,7 +103,6 @@ export default function Player() {
             </Button>
           </Link>
 
-          {/* Advanced Mixer Popover */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -124,9 +118,7 @@ export default function Player() {
                 <h4 className="font-medium text-sm flex items-center gap-2 text-primary uppercase tracking-wider border-b border-border pb-2">
                   <Activity className="w-4 h-4" /> Mixer Controls
                 </h4>
-
                 <div className="space-y-4">
-                  {/* Acoustic Environment */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase">
                       Acoustic Environment
@@ -154,8 +146,6 @@ export default function Player() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Transitions */}
                   <div className="space-y-3 pt-2 border-t border-border">
                     <Label className="text-xs text-primary font-bold uppercase">
                       Transition Suite
@@ -210,8 +200,6 @@ export default function Player() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Current Track Balance */}
                   {currentTrack && (
                     <div className="space-y-2 pt-2 border-t border-border">
                       <div className="flex justify-between">
@@ -236,9 +224,6 @@ export default function Player() {
                           }
                         />
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Adjust individual gain for "{currentTrack.title}".
-                      </p>
                     </div>
                   )}
                 </div>
@@ -271,14 +256,10 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Main Layout */}
       <div className="flex-1 flex flex-col lg:flex-row gap-8 lg:gap-12 items-center justify-center relative z-10 w-full min-h-0">
-        {/* Left Side: Deck / Visuals */}
         <div className="flex-1 w-full max-w-3xl flex flex-col justify-center gap-8 lg:gap-10 h-full overflow-y-auto lg:overflow-visible py-4 scrollbar-none">
           <div className="flex-1 flex items-center justify-center min-h-[300px] relative">
             <TrackInfo track={currentTrack} isLoading={isLoading} />
-
-            {/* Environment Visual Feedback */}
             {acousticEnvironment === 'temple' && (
               <div className="absolute inset-0 pointer-events-none rounded-full border-[20px] border-primary/5 blur-3xl animate-pulse-slow" />
             )}
@@ -299,11 +280,11 @@ export default function Player() {
               onSeek={seek}
               volume={volume}
               onVolumeChange={setVolume}
+              currentTrackId={currentTrack?.id}
             />
           </div>
         </div>
 
-        {/* Right Side: Queue Management (Desktop) */}
         <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-col h-full max-h-[750px] shrink-0">
           <QueueList
             queue={queue}

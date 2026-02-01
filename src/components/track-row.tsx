@@ -9,6 +9,9 @@ import {
   Music,
   Folder,
   BarChart2,
+  CloudDownload,
+  CloudOff,
+  GripVertical,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
 interface TrackRowProps {
   track: Track
@@ -36,6 +40,10 @@ interface TrackRowProps {
   showSelect?: boolean
   showAlbum?: boolean
   folders?: { id: string; name: string }[]
+  draggable?: boolean
+  onDragStart?: (e: React.DragEvent) => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: (e: React.DragEvent) => void
 }
 
 export function TrackRow({
@@ -53,7 +61,13 @@ export function TrackRow({
   showSelect = false,
   showAlbum = true,
   folders = [],
+  draggable,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: TrackRowProps) {
+  const { downloadTrackForOffline, removeTrackFromOffline } = useAudioPlayer()
+
   return (
     <div
       className={cn(
@@ -61,7 +75,18 @@ export function TrackRow({
         isSelected && 'bg-secondary/40 border-primary/10',
         isCurrent && 'bg-primary/5',
       )}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
     >
+      {/* Drag Handle */}
+      {draggable && (
+        <div className="cursor-grab text-muted-foreground/50 hover:text-primary">
+          <GripVertical className="w-4 h-4" />
+        </div>
+      )}
+
       {/* Select / Index / Play */}
       <div className="flex items-center justify-center w-8 md:w-10 flex-shrink-0">
         {showSelect ? (
@@ -119,14 +144,21 @@ export function TrackRow({
 
       {/* Info */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <h4
-          className={cn(
-            'font-medium text-sm truncate leading-tight',
-            isCurrent ? 'text-primary' : 'text-foreground',
+        <div className="flex items-center gap-2">
+          <h4
+            className={cn(
+              'font-medium text-sm truncate leading-tight',
+              isCurrent ? 'text-primary' : 'text-foreground',
+            )}
+          >
+            {track.title}
+          </h4>
+          {track.offlineAvailable && (
+            <span className="text-green-500" title="Disponível Offline">
+              <CloudDownload className="w-3 h-3" />
+            </span>
           )}
-        >
-          {track.title}
-        </h4>
+        </div>
         <p className="text-xs text-muted-foreground truncate group-hover:text-foreground/80 transition-colors">
           {track.composer}
         </p>
@@ -177,6 +209,19 @@ export function TrackRow({
             <DropdownMenuItem onClick={onAddToQueue}>
               <ListPlus className="w-4 h-4 mr-2" /> Adicionar à Fila
             </DropdownMenuItem>
+
+            {track.offlineAvailable ? (
+              <DropdownMenuItem onClick={() => removeTrackFromOffline(track)}>
+                <CloudOff className="w-4 h-4 mr-2 text-destructive" /> Remover
+                do Offline
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => downloadTrackForOffline(track)}>
+                <CloudDownload className="w-4 h-4 mr-2 text-primary" />{' '}
+                Disponibilizar Offline
+              </DropdownMenuItem>
+            )}
+
             <DropdownMenuSeparator />
             {onEdit && (
               <DropdownMenuItem onClick={onEdit}>

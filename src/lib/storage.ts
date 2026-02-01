@@ -6,11 +6,14 @@ export interface LocalTrack {
   composer: string
   album?: string
   duration: string
-  file?: Blob // Made optional for Cloud tracks
-  gdriveId?: string // Reference to Google Drive File ID
+  file?: Blob // Blob for offline playback
+  gdriveId?: string // Reference to Cloud File ID
+  dropboxId?: string
+  onedriveId?: string
+  cloudProvider?: 'google' | 'dropbox' | 'onedrive'
   addedAt: number
-  updatedAt?: number // Last sync update timestamp
-  size?: number // File size in bytes for conflict detection
+  updatedAt?: number
+  size?: number
   degree?: string
   ritual?: string
   folderId?: string
@@ -19,6 +22,8 @@ export interface LocalTrack {
   year?: string
   occasion?: string
   tone?: string
+  offlineAvailable?: boolean // Explicit flag for offline availability
+  url?: string // External URL if not blob
 }
 
 export interface Folder {
@@ -45,14 +50,15 @@ export interface Playlist {
   description?: string
   isSmart: boolean
   rules?: SmartPlaylistRule[]
-  items?: PlaylistItem[]
+  items?: PlaylistItem[] // Ordered list of tracks
   cover?: string
   createdAt: number
   collaborators?: string[]
+  ritualTemplateId?: string // Association with Ritual Template
 }
 
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 5 // Incremented version for schema change if needed
+const DB_VERSION = 6 // Incremented for schema updates
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -199,7 +205,7 @@ export const exportLibraryData = async (): Promise<string> => {
   const folders = await getFolders()
   const playlists = await getPlaylists()
 
-  // Exclude actual file blobs from backup to keep size manageable, preserve metadata including gdriveId
+  // Exclude actual file blobs from backup to keep size manageable
   const tracksMetadata = tracks.map(({ file, ...meta }) => meta)
 
   return JSON.stringify({
@@ -236,7 +242,7 @@ export const exportLibraryToCSV = async (): Promise<string> => {
       t.year || '',
       t.bpm || '',
     ]
-      .map((field) => `"${field}"`) // Escape quotes
+      .map((field) => `"${field}"`)
       .join(','),
   )
 

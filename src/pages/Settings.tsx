@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast'
 import { ProfileSettings } from '@/components/settings/profile-settings'
 import { AppearanceSettings } from '@/components/settings/appearance-settings'
 import { NotificationSettings } from '@/components/settings/notification-settings'
-import { DriveExplorer } from '@/components/settings/drive-explorer'
+import { CloudExplorer } from '@/components/settings/cloud-explorer'
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -109,7 +109,6 @@ export default function Settings() {
         description: 'Lista de faixas exportada para CSV.',
       })
     } catch (e) {
-      console.error(e)
       toast({
         variant: 'destructive',
         title: 'Erro ao Exportar',
@@ -121,7 +120,6 @@ export default function Settings() {
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     const reader = new FileReader()
     reader.onload = async (event) => {
       try {
@@ -165,14 +163,12 @@ export default function Settings() {
           <TabsTrigger value="cloud">Nuvem</TabsTrigger>
         </TabsList>
 
-        {/* GENERAL TAB */}
         <TabsContent value="general" className="space-y-6 mt-6">
           <ProfileSettings />
           <AppearanceSettings />
           <NotificationSettings />
         </TabsContent>
 
-        {/* LODGE TAB */}
         <TabsContent value="lodge" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -218,7 +214,6 @@ export default function Settings() {
               </form>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Membros Ativos</CardTitle>
@@ -261,7 +256,6 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* LOCAL DATA TAB */}
         <TabsContent value="local" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -287,7 +281,6 @@ export default function Settings() {
                   navegador.
                 </p>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-border p-4 rounded-lg space-y-3">
                   <div className="flex items-center gap-2 font-medium">
@@ -305,7 +298,6 @@ export default function Settings() {
                     Baixar Backup
                   </Button>
                 </div>
-
                 <div className="border border-border p-4 rounded-lg space-y-3">
                   <div className="flex items-center gap-2 font-medium">
                     <FileText className="w-4 h-4 text-primary" /> Exportar CSV
@@ -322,7 +314,6 @@ export default function Settings() {
                     Baixar CSV
                   </Button>
                 </div>
-
                 <div className="border border-border p-4 rounded-lg space-y-3 col-span-1 md:col-span-2">
                   <div className="flex items-center gap-2 font-medium">
                     <Upload className="w-4 h-4 text-primary" /> Importar Backup
@@ -344,21 +335,6 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg border border-border">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="w-4 h-4 text-primary" />
-                    <h4 className="font-medium text-sm">Persistência Local</h4>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Seus arquivos permanecerão disponíveis mesmo após fechar o
-                    navegador.
-                  </p>
-                </div>
-                <Switch defaultChecked disabled />
-              </div>
-
               <div className="flex justify-end pt-4 border-t border-border">
                 <Button
                   variant="outline"
@@ -372,21 +348,20 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* CLOUD TAB */}
         <TabsContent value="cloud" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Cloud className="w-5 h-5 text-primary" /> Integração com Google
-                Drive
+                <Cloud className="w-5 h-5 text-primary" /> Integração
+                Multi-Cloud
               </CardTitle>
               <CardDescription>
-                Conecte seu Google Drive para importar arquivos diretamente para
-                sua biblioteca local.
+                Conecte seus provedores de armazenamento para sincronizar
+                músicas diretamente.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <DriveExplorer />
+              <CloudExplorer />
             </CardContent>
           </Card>
         </TabsContent>

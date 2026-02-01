@@ -16,6 +16,8 @@ import {
   FolderInput,
   Folder,
   Plus,
+  WifiOff,
+  Wifi,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { saveTrack, deleteTrack } from '@/lib/storage'
@@ -40,6 +42,8 @@ export default function Library() {
     isPlaying,
     togglePlay,
     createPlaylist,
+    isOfflineMode,
+    toggleOfflineMode,
   } = useAudioPlayer()
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
@@ -126,6 +130,7 @@ export default function Library() {
           degree: 'Geral',
           ritual: 'Livre',
           folderId: currentFolderId || undefined,
+          offlineAvailable: true,
         })
         importedCount++
       } catch (e) {
@@ -137,24 +142,11 @@ export default function Library() {
     if (importedCount > 0) {
       toast({
         title: 'Importação Concluída',
-        description: `${importedCount} arquivos adicionados${
-          currentFolderId ? ' à pasta atual' : ''
-        }.`,
+        description: `${importedCount} arquivos adicionados.`,
       })
       refreshLibrary()
     }
-
-    if (failedFiles.length > 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Falha na Importação',
-        description: `Não foi possível importar ${failedFiles.length} arquivos.`,
-      })
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleDelete = async (id: string) => {
@@ -168,13 +160,13 @@ export default function Library() {
 
   const handleBulkDelete = async () => {
     for (const id of selectedItems) {
-      if (id.startsWith('local-')) {
+      if (id.startsWith('local-') || id.startsWith('gdrive-')) {
         await deleteTrack(id)
       }
     }
     toast({
       title: 'Exclusão em Massa',
-      description: 'Itens locais selecionados foram removidos.',
+      description: 'Itens selecionados foram removidos.',
     })
     setSelectedItems([])
     refreshLibrary()
@@ -229,6 +221,23 @@ export default function Library() {
 
           <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
             <Button
+              variant={isOfflineMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleOfflineMode}
+              className={cn(
+                'gap-2',
+                isOfflineMode && 'bg-primary text-black hover:bg-primary/90',
+              )}
+            >
+              {isOfflineMode ? (
+                <WifiOff className="w-4 h-4" />
+              ) : (
+                <Wifi className="w-4 h-4" />
+              )}
+              {isOfflineMode ? 'Offline Mode' : 'Online'}
+            </Button>
+
+            <Button
               variant="outline"
               className="mr-2 border-primary/30 text-primary hover:bg-primary/10"
               onClick={() => setIsPlaylistDialogOpen(true)}
@@ -251,7 +260,7 @@ export default function Library() {
               ref={fileInputRef}
               className="hidden"
               multiple
-              accept=".mp3,audio/mpeg,audio/wav,.wav,audio/ogg,.ogg,audio/flac,.flac,audio/x-m4a,.m4a"
+              accept=".mp3,audio/*"
               onChange={handleFileChange}
             />
             <Button onClick={handleImportClick} className="shadow-sm">
@@ -351,11 +360,8 @@ export default function Library() {
                       onSelect={() => toggleSelection(track.id)}
                       showSelect
                       onPlay={() => {
-                        if (currentTrack?.id === track.id) {
-                          togglePlay()
-                        } else {
-                          handlePlayContext(idx)
-                        }
+                        if (currentTrack?.id === track.id) togglePlay()
+                        else handlePlayContext(idx)
                       }}
                       onAddToQueue={() => addToQueue([track])}
                       onEdit={
@@ -376,9 +382,6 @@ export default function Library() {
                   <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
                     <FolderInput className="w-12 h-12 opacity-20" />
                     <p>Nenhum arquivo encontrado.</p>
-                    <Button variant="outline" onClick={handleImportClick}>
-                      Importar Agora
-                    </Button>
                   </div>
                 )}
               </div>
