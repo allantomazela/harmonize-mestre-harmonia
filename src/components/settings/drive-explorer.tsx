@@ -12,9 +12,11 @@ import {
   ChevronLeft,
   HardDrive,
   Home,
-  CheckCircle2,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 
 export function DriveExplorer() {
   const {
@@ -100,7 +102,10 @@ export function DriveExplorer() {
           </div>
           <div>
             <p className="text-sm font-medium">{user?.name}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              {user?.email}{' '}
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block ml-1" />
+            </p>
           </div>
         </div>
         <Button
@@ -114,37 +119,44 @@ export function DriveExplorer() {
       </div>
 
       {/* Navigation Bar */}
-      <div className="px-4 py-2 bg-secondary/10 border-b flex items-center gap-2 overflow-x-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => navigateToFolder(null)}
-          disabled={currentPath.length === 0}
-        >
-          <Home className="w-4 h-4" />
-        </Button>
-        {currentPath.length > 0 && (
-          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-        )}
-        <div className="flex items-center gap-1 text-sm">
-          {currentPath.map((folder, index) => (
-            <div key={folder.id} className="flex items-center gap-1">
-              {index > 0 && <span className="text-muted-foreground">/</span>}
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-7 px-2 font-normal',
-                  index === currentPath.length - 1 &&
-                    'font-bold text-foreground',
-                )}
-                onClick={() => navigateToFolder(folder)}
-              >
-                {folder.name}
-              </Button>
-            </div>
-          ))}
+      <div className="px-4 py-2 bg-secondary/10 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => navigateToFolder(null)}
+            disabled={currentPath.length === 0}
+          >
+            <Home className="w-4 h-4" />
+          </Button>
+          {currentPath.length > 0 && (
+            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+          )}
+          <div className="flex items-center gap-1 text-sm">
+            {currentPath.map((folder, index) => (
+              <div key={folder.id} className="flex items-center gap-1">
+                {index > 0 && <span className="text-muted-foreground">/</span>}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-7 px-2 font-normal',
+                    index === currentPath.length - 1 &&
+                      'font-bold text-foreground',
+                  )}
+                  onClick={() => navigateToFolder(folder)}
+                >
+                  {folder.name}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs font-normal gap-1">
+            <Cloud className="w-3 h-3" /> Sync Ready
+          </Badge>
         </div>
       </div>
 

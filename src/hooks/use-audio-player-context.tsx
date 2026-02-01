@@ -22,6 +22,7 @@ import {
   Folder,
   Playlist,
 } from '@/lib/storage'
+import { ritualTemplates, matchTracksToTemplate } from '@/lib/ritual-templates'
 
 export interface Track {
   id: string
@@ -43,7 +44,8 @@ export interface Track {
   tone?: string
 }
 
-type FadeCurve = 'linear' | 'exponential' | 'smooth'
+export type AcousticEnvironment = 'none' | 'temple' | 'cathedral' | 'small-room'
+export type FadeCurve = 'linear' | 'exponential' | 'smooth'
 
 interface AudioPlayerContextType {
   isPlaying: boolean
@@ -56,6 +58,8 @@ interface AudioPlayerContextType {
   currentTime: number
   duration: number
   volume: number
+  trackVolumes: Record<string, number> // Per-track volume balance (0.0 to 1.0)
+  acousticEnvironment: AcousticEnvironment
   fadeInDuration: number
   fadeOutDuration: number
   fadeCurve: FadeCurve
@@ -66,6 +70,8 @@ interface AudioPlayerContextType {
   playPrev: () => void
   seek: (time: number) => void
   setVolume: (vol: number) => void
+  setTrackVolume: (trackId: string, vol: number) => void
+  setAcousticEnvironment: (env: AcousticEnvironment) => void
   setFadeInDuration: (sec: number) => void
   setFadeOutDuration: (sec: number) => void
   setFadeCurve: (curve: FadeCurve) => void
@@ -84,6 +90,7 @@ interface AudioPlayerContextType {
   removePlaylist: (id: string) => Promise<void>
   updatePlaylist: (playlist: Playlist) => Promise<void>
   getPlaylistTracks: (playlist: Playlist) => Track[]
+  generateRitualSession: (templateId: string) => void
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -100,6 +107,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.8)
+  const [trackVolumes, setTrackVolumes] = useState<Record<string, number>>({})
+  const [acousticEnvironment, setAcousticEnvironment] =
+    useState<AcousticEnvironment>('none')
   const [fadeInDuration, setFadeInDuration] = useState(1.5)
   const [fadeOutDuration, setFadeOutDuration] = useState(3.0)
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential')
@@ -110,6 +120,12 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+
+  // Web Audio API Refs (for advanced effects if possible)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const gainNodeRef = useRef<GainNode | null>(null)
+  const convolverNodeRef = useRef<ConvolverNode | null>(null) // Reverb
 
   const refreshLibrary = useCallback(async () => {
     try {
@@ -141,7 +157,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       setLibrary(allTracks)
       setFolders(loadedFolders)
 
-      // Merge mock playlists with local playlists if no local playlists exist yet
       if (loadedPlaylists.length === 0 && mockPlaylists.length > 0) {
         const adaptedMocks: Playlist[] = mockPlaylists.map((mp) => ({
           id: mp.id,
@@ -151,7 +166,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
           cover: mp.cover,
           items: mp.items.map((tid) => ({ trackId: tid })),
         }))
-        // Note: we don't auto-save mocks to DB to avoid pollution, but we load them in state
         setPlaylists(adaptedMocks)
       } else {
         setPlaylists(loadedPlaylists)
@@ -169,100 +183,97 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
-  // Folders
-  const createFolder = async (name: string) => {
-    const newFolder: Folder = {
-      id: crypto.randomUUID(),
-      name,
-      createdAt: Date.now(),
-    }
-    await saveFolder(newFolder)
-    await refreshLibrary()
-  }
+  // --- Acoustic Environment Implementation (Mock/Simple DSP) ---
+  // In a real browser environment, applying ConvolverNode requires CORS enabled audio sources.
+  // We will attempt to set it up, but fallback to just state if it fails.
+  useEffect(() => {
+    // Only init AudioContext if user interaction happened ideally, but here we try lazy load
+    if (!audioContextRef.current && audioRef.current && isPlaying) {
+      try {
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext
+        const ctx = new AudioContextClass()
+        audioContextRef.current = ctx
 
-  const removeFolder = async (id: string) => {
-    await deleteFolder(id)
-    const tracksToUpdate = library.filter((t) => t.folderId === id && t.isLocal)
-    for (const t of tracksToUpdate) {
-      await updateTrack({ ...t, folderId: undefined })
-    }
-    await refreshLibrary()
-  }
+        // Create nodes
+        const source = ctx.createMediaElementSource(audioRef.current)
+        const gain = ctx.createGain()
+        const convolver = ctx.createConvolver()
 
-  // Playlists
-  const createPlaylist = async (playlist: Playlist) => {
-    await savePlaylist(playlist)
-    await refreshLibrary()
-  }
+        // Simple impulse response generation for reverb
+        const rate = ctx.sampleRate
+        const length = rate * 2 // 2 seconds
+        const decay = 2.0
+        const impulse = ctx.createBuffer(2, length, rate)
+        const impulseL = impulse.getChannelData(0)
+        const impulseR = impulse.getChannelData(1)
+        for (let i = 0; i < length; i++) {
+          const n = length - i
+          impulseL[i] =
+            (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay)
+          impulseR[i] =
+            (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay)
+        }
+        convolver.buffer = impulse
 
-  const removePlaylist = async (id: string) => {
-    await deletePlaylistStorage(id)
-    await refreshLibrary()
-  }
+        // Connect graph
+        // Source -> Gain -> Destination (Dry)
+        // Source -> Convolver -> Gain -> Destination (Wet) - simplified for now:
+        // Source -> Convolver (optional) -> Gain -> Destination
 
-  const updatePlaylist = async (playlist: Playlist) => {
-    await savePlaylist(playlist)
-    await refreshLibrary()
-  }
+        sourceNodeRef.current = source
+        gainNodeRef.current = gain
+        convolverNodeRef.current = convolver
 
-  const getPlaylistTracks = useCallback(
-    (playlist: Playlist): Track[] => {
-      if (!playlist) return []
-
-      if (playlist.isSmart && playlist.rules) {
-        return library.filter((track) => {
-          return playlist.rules!.every((rule) => {
-            const trackValue = String(
-              (track as any)[rule.field] || '',
-            ).toLowerCase()
-            const ruleValue = rule.value.toLowerCase()
-
-            if (rule.operator === 'equals') {
-              return trackValue === ruleValue
-            } else if (rule.operator === 'contains') {
-              return trackValue.includes(ruleValue)
-            }
-            return false
-          })
-        })
-      } else if (playlist.items) {
-        return playlist.items
-          .map((item) => library.find((t) => t.id === item.trackId))
-          .filter((t): t is Track => !!t)
+        // Default direct connection
+        source.connect(gain)
+        gain.connect(ctx.destination)
+      } catch (e) {
+        console.warn('Web Audio API setup failed (likely CORS):', e)
       }
-      return []
-    },
-    [library],
-  )
-
-  const updateTrack = async (updatedTrack: Track) => {
-    if (!updatedTrack.isLocal || !updatedTrack.file) return
-
-    const localTrack: LocalTrack = {
-      id: updatedTrack.id,
-      title: updatedTrack.title,
-      composer: updatedTrack.composer,
-      album: updatedTrack.album,
-      duration: updatedTrack.duration,
-      file: updatedTrack.file,
-      addedAt: Date.now(),
-      degree: updatedTrack.degree,
-      ritual: updatedTrack.ritual,
-      folderId: updatedTrack.folderId,
-      genre: updatedTrack.genre,
-      bpm: updatedTrack.bpm,
-      year: updatedTrack.year,
-      occasion: updatedTrack.occasion,
-      tone: updatedTrack.tone,
     }
+  }, [isPlaying])
 
-    await saveTrack(localTrack)
-    await refreshLibrary()
-  }
+  useEffect(() => {
+    // Apply acoustic environment effect
+    if (
+      !audioContextRef.current ||
+      !sourceNodeRef.current ||
+      !gainNodeRef.current ||
+      !convolverNodeRef.current
+    )
+      return
+
+    try {
+      const source = sourceNodeRef.current
+      const gain = gainNodeRef.current
+      const convolver = convolverNodeRef.current
+      const ctx = audioContextRef.current
+
+      // Disconnect everything to reset
+      source.disconnect()
+      convolver.disconnect()
+      gain.disconnect()
+
+      if (acousticEnvironment === 'none') {
+        source.connect(gain)
+      } else {
+        // Simple wet mix simulation
+        source.connect(convolver)
+        convolver.connect(gain)
+        // Also connect dry
+        source.connect(gain)
+      }
+      gain.connect(ctx.destination)
+    } catch (e) {
+      console.warn('Failed to update acoustic environment', e)
+    }
+  }, [acousticEnvironment])
+
+  // --- End Acoustic Environment ---
 
   const currentTrack = queue[currentIndex]
 
-  // Playback control helpers
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
     switch (curve) {
       case 'exponential':
@@ -275,9 +286,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const getEffectiveVolume = useCallback(() => {
+    if (!currentTrack) return volume
+    const trackVol = trackVolumes[currentTrack.id] ?? 1.0
+    return Math.max(0, Math.min(1, volume * trackVol))
+  }, [volume, trackVolumes, currentTrack])
+
   const performFade = useCallback(
     (
-      targetVolume: number,
+      targetBaseVolume: number,
       duration: number,
       curve: FadeCurve,
       onComplete?: () => void,
@@ -291,10 +308,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       const audio = audioRef.current
       const startVolume = audio.volume
-      const diff = targetVolume - startVolume
+
+      // Calculate effective target based on track balance
+      // targetBaseVolume is usually global 'volume' or 0
+      const effectiveTarget = targetBaseVolume === 0 ? 0 : getEffectiveVolume()
+
+      const diff = effectiveTarget - startVolume
 
       if (Math.abs(diff) < 0.01 || duration <= 0) {
-        audio.volume = targetVolume
+        audio.volume = effectiveTarget
         onComplete?.()
         return
       }
@@ -317,18 +339,21 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         if (currentStep >= steps) {
           if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
           fadeIntervalRef.current = null
-          audio.volume = targetVolume
+          audio.volume = effectiveTarget
           onComplete?.()
         }
       }, stepTime)
     },
-    [calculateCurve],
+    [calculateCurve, getEffectiveVolume],
   )
 
   const safePlay = useCallback(async () => {
     if (!audioRef.current) return
 
     try {
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume()
+      }
       playPromiseRef.current = audioRef.current.play()
       await playPromiseRef.current
       setIsPlaying(true)
@@ -428,6 +453,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
+      audioRef.current.crossOrigin = 'anonymous' // Attempt to fix CORS for WebAudio
       audioRef.current.preload = 'auto'
     }
     const audio = audioRef.current
@@ -487,11 +513,20 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isAutoPlay, playNext])
 
+  // Volume Updates
   useEffect(() => {
     if (audioRef.current && !fadeIntervalRef.current) {
-      audioRef.current.volume = Math.max(0, Math.min(1, volume))
+      const effective = getEffectiveVolume()
+      audioRef.current.volume = effective
     }
-  }, [volume])
+  }, [volume, trackVolumes, currentTrack, getEffectiveVolume])
+
+  const setTrackVolume = useCallback((trackId: string, vol: number) => {
+    setTrackVolumes((prev) => ({
+      ...prev,
+      [trackId]: Math.max(0, Math.min(1, vol)),
+    }))
+  }, [])
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return
@@ -614,6 +649,121 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setCurrentIndex(0)
   }, [])
 
+  // CRUD for Folders/Playlists/Tracks same as before...
+  const createFolder = async (name: string) => {
+    const newFolder: Folder = {
+      id: crypto.randomUUID(),
+      name,
+      createdAt: Date.now(),
+    }
+    await saveFolder(newFolder)
+    await refreshLibrary()
+  }
+
+  const removeFolder = async (id: string) => {
+    await deleteFolder(id)
+    const tracksToUpdate = library.filter((t) => t.folderId === id && t.isLocal)
+    for (const t of tracksToUpdate) {
+      await updateTrack({ ...t, folderId: undefined })
+    }
+    await refreshLibrary()
+  }
+
+  const createPlaylist = async (playlist: Playlist) => {
+    await savePlaylist(playlist)
+    await refreshLibrary()
+  }
+
+  const removePlaylist = async (id: string) => {
+    await deletePlaylistStorage(id)
+    await refreshLibrary()
+  }
+
+  const updatePlaylist = async (playlist: Playlist) => {
+    await savePlaylist(playlist)
+    await refreshLibrary()
+  }
+
+  const updateTrack = async (updatedTrack: Track) => {
+    if (!updatedTrack.isLocal || !updatedTrack.file) return
+    const localTrack: LocalTrack = {
+      id: updatedTrack.id,
+      title: updatedTrack.title,
+      composer: updatedTrack.composer,
+      album: updatedTrack.album,
+      duration: updatedTrack.duration,
+      file: updatedTrack.file,
+      addedAt: Date.now(),
+      degree: updatedTrack.degree,
+      ritual: updatedTrack.ritual,
+      folderId: updatedTrack.folderId,
+      genre: updatedTrack.genre,
+      bpm: updatedTrack.bpm,
+      year: updatedTrack.year,
+      occasion: updatedTrack.occasion,
+      tone: updatedTrack.tone,
+    }
+    await saveTrack(localTrack)
+    await refreshLibrary()
+  }
+
+  const getPlaylistTracks = useCallback(
+    (playlist: Playlist): Track[] => {
+      if (!playlist) return []
+      if (playlist.isSmart && playlist.rules) {
+        return library.filter((track) => {
+          return playlist.rules!.every((rule) => {
+            const trackValue = String(
+              (track as any)[rule.field] || '',
+            ).toLowerCase()
+            const ruleValue = rule.value.toLowerCase()
+            if (rule.operator === 'equals') return trackValue === ruleValue
+            else if (rule.operator === 'contains')
+              return trackValue.includes(ruleValue)
+            return false
+          })
+        })
+      } else if (playlist.items) {
+        return playlist.items
+          .map((item) => library.find((t) => t.id === item.trackId))
+          .filter((t): t is Track => !!t)
+      }
+      return []
+    },
+    [library],
+  )
+
+  const generateRitualSession = useCallback(
+    (templateId: string) => {
+      const template = ritualTemplates.find((t) => t.id === templateId)
+      if (!template) {
+        toast({
+          title: 'Erro',
+          description: 'Template não encontrado.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const generatedTracks = matchTracksToTemplate(template, library)
+      if (generatedTracks.length === 0) {
+        toast({
+          title: 'Aviso',
+          description: 'Nenhuma música compatível encontrada.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      replaceQueue(generatedTracks)
+      toast({
+        title: 'Sessão Gerada',
+        description: `Playlist criada para ${template.title} com ${generatedTracks.length} faixas.`,
+      })
+    },
+    [library, replaceQueue],
+  )
+
   return (
     <AudioPlayerContext.Provider
       value={{
@@ -627,6 +777,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         currentTime,
         duration,
         volume,
+        trackVolumes,
+        acousticEnvironment,
         fadeInDuration,
         fadeOutDuration,
         fadeCurve,
@@ -637,6 +789,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         playPrev,
         seek,
         setVolume,
+        setTrackVolume,
+        setAcousticEnvironment,
         setFadeInDuration,
         setFadeOutDuration,
         setFadeCurve,
@@ -655,6 +809,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         getPlaylistTracks,
         updateTrack,
         triggerFadeOut,
+        generateRitualSession,
       }}
     >
       {children}

@@ -31,17 +31,21 @@ export default function Layout() {
         <main
           className={cn(
             'flex-1 p-4 md:p-6 overflow-y-auto animate-fade-in',
-            // Adjust bottom margin based on MiniPlayer presence
             // Mobile: Nav (~60px) + Player (80px) -> mb-36 approx
-            // Desktop: Player (80px) -> mb-20
-            currentTrack && !isPlayerPage ? 'mb-36 md:mb-20' : 'mb-16 md:mb-0',
+            // Desktop: Sidebar Player handles controls, so less margin needed or none if using sidebar player exclusively
+            currentTrack && !isPlayerPage ? 'mb-36 md:mb-4' : 'mb-16 md:mb-0',
           )}
         >
           <Outlet />
         </main>
       </div>
 
-      {!isPlayerPage && <MiniPlayer />}
+      {/* MiniPlayer visible only on mobile/tablet if Sidebar Player is active on Desktop */}
+      {!isPlayerPage && (
+        <div className="md:hidden">
+          <MiniPlayer />
+        </div>
+      )}
       <MobileNav />
     </div>
   )

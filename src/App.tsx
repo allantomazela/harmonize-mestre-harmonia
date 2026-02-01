@@ -17,6 +17,7 @@ import Player from './pages/Player'
 import Settings from './pages/Settings'
 import CalendarPage from './pages/CalendarPage'
 import LiveMode from './pages/LiveMode'
+import RitualCreator from './pages/RitualCreator'
 import { AudioPlayerProvider } from '@/hooks/use-audio-player-context'
 import { ThemeProvider } from '@/components/theme-provider'
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/player" element={<Player />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/ritual-creator" element={<RitualCreator />} />
             </Route>
             {/* Live Mode outside Main Layout for full screen experience */}
             <Route path="/live-mode" element={<LiveMode />} />
