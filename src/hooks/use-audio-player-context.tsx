@@ -136,8 +136,23 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential')
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [isAutoPlay, setIsAutoPlay] = useState(true)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+
+  // Initialize autoPlay from localStorage
+  const [isAutoPlay, setIsAutoPlay] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('harmonize-autoplay')
+      if (saved !== null) {
+        return saved === 'true'
+      }
+    }
+    return true
+  })
+
+  // Persist autoPlay preference
+  useEffect(() => {
+    localStorage.setItem('harmonize-autoplay', String(isAutoPlay))
+  }, [isAutoPlay])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -216,7 +231,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
-  // Audio Context Setup (unchanged logic)
+  // Audio Context Setup
   useEffect(() => {
     if (!audioContextRef.current && audioRef.current && isPlaying) {
       try {
@@ -254,7 +269,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying])
 
-  // Environment switching (unchanged logic)
+  // Environment switching
   useEffect(() => {
     if (
       !audioContextRef.current ||
@@ -280,7 +295,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [acousticEnvironment])
 
-  // Fade Logic (unchanged)
+  // Fade Logic
   const currentTrack = queue[currentIndex]
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
     if (curve === 'exponential') return t * t
@@ -438,7 +453,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  // Setup Audio Event Listeners (unchanged)
+  // Setup Audio Event Listeners
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
@@ -524,6 +539,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     safePlay,
     safePause,
   ])
+
+  // Added missing toggleAutoPlay function implementation
+  const toggleAutoPlay = useCallback(() => {
+    setIsAutoPlay((prev) => !prev)
+  }, [])
 
   const triggerFadeOut = useCallback(() => {
     if (isPlaying && audioRef.current)
