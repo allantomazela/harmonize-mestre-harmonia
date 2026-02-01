@@ -23,6 +23,7 @@ import {
   Playlist,
 } from '@/lib/storage'
 import { ritualTemplates, matchTracksToTemplate } from '@/lib/ritual-templates'
+import { fetchDriveFileBlob } from '@/lib/google-drive'
 
 export interface Track {
   id: string
@@ -31,6 +32,7 @@ export interface Track {
   album?: string
   url?: string
   file?: Blob
+  gdriveId?: string
   cover?: string
   duration: string
   degree: string
@@ -58,7 +60,7 @@ interface AudioPlayerContextType {
   currentTime: number
   duration: number
   volume: number
-  trackVolumes: Record<string, number> // Per-track volume balance (0.0 to 1.0)
+  trackVolumes: Record<string, number>
   acousticEnvironment: AcousticEnvironment
   fadeInDuration: number
   fadeOutDuration: number
@@ -121,11 +123,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const objectUrlRef = useRef<string | null>(null)
 
-  // Web Audio API Refs (for advanced effects if possible)
+  // Web Audio API Refs
   const audioContextRef = useRef<AudioContext | null>(null)
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
   const gainNodeRef = useRef<GainNode | null>(null)
-  const convolverNodeRef = useRef<ConvolverNode | null>(null) // Reverb
+  const convolverNodeRef = useRef<ConvolverNode | null>(null)
 
   const refreshLibrary = useCallback(async () => {
     try {
@@ -141,6 +143,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         composer: lt.composer,
         album: lt.album,
         file: lt.file,
+        gdriveId: lt.gdriveId,
         duration: lt.duration,
         degree: lt.degree || 'Geral',
         ritual: lt.ritual || 'Geral',
@@ -183,11 +186,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
-  // --- Acoustic Environment Implementation (Mock/Simple DSP) ---
-  // In a real browser environment, applying ConvolverNode requires CORS enabled audio sources.
-  // We will attempt to set it up, but fallback to just state if it fails.
   useEffect(() => {
-    // Only init AudioContext if user interaction happened ideally, but here we try lazy load
     if (!audioContextRef.current && audioRef.current && isPlaying) {
       try {
         const AudioContextClass =
@@ -195,14 +194,12 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         const ctx = new AudioContextClass()
         audioContextRef.current = ctx
 
-        // Create nodes
         const source = ctx.createMediaElementSource(audioRef.current)
         const gain = ctx.createGain()
         const convolver = ctx.createConvolver()
 
-        // Simple impulse response generation for reverb
         const rate = ctx.sampleRate
-        const length = rate * 2 // 2 seconds
+        const length = rate * 2
         const decay = 2.0
         const impulse = ctx.createBuffer(2, length, rate)
         const impulseL = impulse.getChannelData(0)
@@ -216,16 +213,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         }
         convolver.buffer = impulse
 
-        // Connect graph
-        // Source -> Gain -> Destination (Dry)
-        // Source -> Convolver -> Gain -> Destination (Wet) - simplified for now:
-        // Source -> Convolver (optional) -> Gain -> Destination
-
         sourceNodeRef.current = source
         gainNodeRef.current = gain
         convolverNodeRef.current = convolver
 
-        // Default direct connection
         source.connect(gain)
         gain.connect(ctx.destination)
       } catch (e) {
@@ -235,7 +226,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [isPlaying])
 
   useEffect(() => {
-    // Apply acoustic environment effect
     if (
       !audioContextRef.current ||
       !sourceNodeRef.current ||
@@ -250,7 +240,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       const convolver = convolverNodeRef.current
       const ctx = audioContextRef.current
 
-      // Disconnect everything to reset
       source.disconnect()
       convolver.disconnect()
       gain.disconnect()
@@ -258,10 +247,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       if (acousticEnvironment === 'none') {
         source.connect(gain)
       } else {
-        // Simple wet mix simulation
         source.connect(convolver)
         convolver.connect(gain)
-        // Also connect dry
         source.connect(gain)
       }
       gain.connect(ctx.destination)
@@ -269,8 +256,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       console.warn('Failed to update acoustic environment', e)
     }
   }, [acousticEnvironment])
-
-  // --- End Acoustic Environment ---
 
   const currentTrack = queue[currentIndex]
 
@@ -308,11 +293,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       const audio = audioRef.current
       const startVolume = audio.volume
-
-      // Calculate effective target based on track balance
-      // targetBaseVolume is usually global 'volume' or 0
       const effectiveTarget = targetBaseVolume === 0 ? 0 : getEffectiveVolume()
-
       const diff = effectiveTarget - startVolume
 
       if (Math.abs(diff) < 0.01 || duration <= 0) {
@@ -374,7 +355,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadAndPlay = useCallback(
-    (track: Track) => {
+    async (track: Track) => {
       if (!audioRef.current) return
 
       if (objectUrlRef.current) {
@@ -382,13 +363,33 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         objectUrlRef.current = null
       }
 
-      const startNewTrack = () => {
+      const startNewTrack = async () => {
         if (!audioRef.current) return
 
         let src = track.url
+
+        // Handle Cloud/Local Files
         if (track.file) {
           src = URL.createObjectURL(track.file)
           objectUrlRef.current = src
+        } else if (track.gdriveId) {
+          try {
+            setIsLoading(true)
+            const blob = await fetchDriveFileBlob(track.gdriveId)
+            src = URL.createObjectURL(blob)
+            objectUrlRef.current = src
+          } catch (e) {
+            console.error(e)
+            toast({
+              title: 'Erro de Reprodução',
+              description: 'Não foi possível baixar o arquivo do Google Drive.',
+              variant: 'destructive',
+            })
+            setIsLoading(false)
+            return
+          } finally {
+            setIsLoading(false)
+          }
         }
 
         if (!src) {
@@ -453,7 +454,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
-      audioRef.current.crossOrigin = 'anonymous' // Attempt to fix CORS for WebAudio
+      audioRef.current.crossOrigin = 'anonymous'
       audioRef.current.preload = 'auto'
     }
     const audio = audioRef.current
@@ -513,7 +514,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isAutoPlay, playNext])
 
-  // Volume Updates
   useEffect(() => {
     if (audioRef.current && !fadeIntervalRef.current) {
       const effective = getEffectiveVolume()
@@ -649,7 +649,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setCurrentIndex(0)
   }, [])
 
-  // CRUD for Folders/Playlists/Tracks same as before...
   const createFolder = async (name: string) => {
     const newFolder: Folder = {
       id: crypto.randomUUID(),
@@ -685,7 +684,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   const updateTrack = async (updatedTrack: Track) => {
-    if (!updatedTrack.isLocal || !updatedTrack.file) return
+    // Only update local tracks
+    if (!updatedTrack.isLocal) return
+
     const localTrack: LocalTrack = {
       id: updatedTrack.id,
       title: updatedTrack.title,
@@ -693,6 +694,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       album: updatedTrack.album,
       duration: updatedTrack.duration,
       file: updatedTrack.file,
+      gdriveId: updatedTrack.gdriveId,
       addedAt: Date.now(),
       degree: updatedTrack.degree,
       ritual: updatedTrack.ritual,
@@ -815,12 +817,4 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       {children}
     </AudioPlayerContext.Provider>
   )
-}
-
-export function useAudioPlayer() {
-  const context = useContext(AudioPlayerContext)
-  if (!context) {
-    throw new Error('useAudioPlayer must be used within AudioPlayerProvider')
-  }
-  return context
 }

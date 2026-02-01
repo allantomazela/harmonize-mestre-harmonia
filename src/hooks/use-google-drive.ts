@@ -1,5 +1,14 @@
-import { useState, useCallback } from 'react'
-import { mockDriveFiles, DriveFile } from '@/lib/mock-drive-data'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  loadGoogleScripts,
+  initializeGapiClient,
+  initializeTokenClient,
+  handleAuthClick,
+  handleSignOut,
+  listDriveFiles,
+  scanFolderForAudio,
+  GDriveFile,
+} from '@/lib/google-drive'
 import { saveTrack } from '@/lib/storage'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { useToast } from '@/hooks/use-toast'
@@ -11,73 +20,109 @@ export interface GoogleUser {
 }
 
 export function useGoogleDrive() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('gdrive_connected') === 'true'
-  })
-  const [user, setUser] = useState<GoogleUser | null>(() => {
-    const saved = localStorage.getItem('gdrive_user')
-    return saved ? JSON.parse(saved) : null
-  })
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState<GoogleUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [currentPath, setCurrentPath] = useState<DriveFile[]>([]) // Breadcrumbs (folders)
+  const [currentPath, setCurrentPath] = useState<GDriveFile[]>([])
+
   const { refreshLibrary } = useAudioPlayer()
   const { toast } = useToast()
 
-  const login = useCallback(async () => {
-    setIsLoading(true)
-    // Simulate OAuth Popup
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        const mockUser = {
-          name: 'Irmão Admin',
-          email: 'admin@lojamaconica.com.br',
-          avatar:
-            'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=42',
+  // Load Scripts on Mount
+  useEffect(() => {
+    loadGoogleScripts(
+      async () => {
+        // GAPI Loaded
+        try {
+          await initializeGapiClient()
+
+          // Check if previously authorized (crude check via token presence logic or storage)
+          // For simplicity in this flow, we rely on TokenClient callback for auth state
+        } catch (error) {
+          console.error('GAPI Init Error', error)
         }
-        setIsAuthenticated(true)
-        setUser(mockUser)
-        localStorage.setItem('gdrive_connected', 'true')
-        localStorage.setItem('gdrive_user', JSON.stringify(mockUser))
-        setIsLoading(false)
-        toast({
-          title: 'Google Drive Conectado',
-          description: `Conectado como ${mockUser.email}`,
+      },
+      () => {
+        // GIS Loaded
+        initializeTokenClient((response) => {
+          if (response && response.access_token) {
+            setIsAuthenticated(true)
+            // Fetch basic profile info usually requires 'profile' scope or separate API
+            // For now, we mock the user display or fetch via Drive 'about'
+            fetchUserInfo()
+          }
         })
-        resolve()
-      }, 1500)
-    })
-  }, [toast])
-
-  const logout = useCallback(() => {
-    setIsAuthenticated(false)
-    setUser(null)
-    setCurrentPath([])
-    localStorage.removeItem('gdrive_connected')
-    localStorage.removeItem('gdrive_user')
-    toast({
-      title: 'Desconectado',
-      description: 'A conta do Google Drive foi desconectada.',
-    })
-  }, [toast])
-
-  const listFiles = useCallback((folderId?: string) => {
-    // Simulate API delay
-    return new Promise<DriveFile[]>((resolve) => {
-      setTimeout(() => {
-        const files = mockDriveFiles.filter((f) => {
-          if (!folderId) return !f.parentId // Root files
-          return f.parentId === folderId
-        })
-        resolve(files)
-      }, 500)
-    })
+        setIsScriptLoaded(true)
+      },
+    )
   }, [])
 
-  const navigateToFolder = (folder: DriveFile | null) => {
+  const fetchUserInfo = async () => {
+    try {
+      const response = await window.gapi.client.drive.about.get({
+        fields: 'user',
+      })
+      const driveUser = response.result.user
+      setUser({
+        name: driveUser.displayName,
+        email: driveUser.emailAddress,
+        avatar: driveUser.photoLink,
+      })
+      localStorage.setItem('gdrive_connected', 'true')
+    } catch (e) {
+      console.warn('Failed to fetch user info', e)
+    }
+  }
+
+  const login = () => {
+    if (!isScriptLoaded) {
+      toast({
+        variant: 'destructive',
+        title: 'Serviço Indisponível',
+        description: 'Os scripts do Google ainda não foram carregados.',
+      })
+      return
+    }
+    handleAuthClick()
+  }
+
+  const logout = () => {
+    handleSignOut()
+    setIsAuthenticated(false)
+    setUser(null)
+    localStorage.removeItem('gdrive_connected')
+    toast({
+      title: 'Desconectado',
+      description: 'Conta do Google Drive desconectada.',
+    })
+  }
+
+  const listFiles = useCallback(
+    async (folderId: string = 'root') => {
+      setIsLoading(true)
+      try {
+        const files = await listDriveFiles(folderId)
+        setIsLoading(false)
+        return files
+      } catch (e) {
+        console.error(e)
+        setIsLoading(false)
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao listar arquivos',
+          description: 'Verifique sua conexão ou permissões.',
+        })
+        return []
+      }
+    },
+    [toast],
+  )
+
+  const navigateToFolder = (folder: GDriveFile | null) => {
     if (!folder) {
       setCurrentPath([])
     } else {
-      // Check if we are going back or deeper
       const index = currentPath.findIndex((f) => f.id === folder.id)
       if (index !== -1) {
         setCurrentPath((prev) => prev.slice(0, index + 1))
@@ -87,48 +132,51 @@ export function useGoogleDrive() {
     }
   }
 
-  const downloadFiles = useCallback(
-    async (files: DriveFile[]) => {
+  const syncFolder = useCallback(
+    async (folderId: string, folderName: string) => {
       setIsLoading(true)
-      let successCount = 0
-
+      let count = 0
       try {
+        const files = await scanFolderForAudio(folderId)
+
         for (const file of files) {
-          if (file.mimeType.includes('folder')) continue
+          // Parse metadata if available, otherwise default
+          const durationSec = file.durationMillis
+            ? parseInt(file.durationMillis) / 1000
+            : 0
+          const durationStr =
+            durationSec > 0
+              ? `${Math.floor(durationSec / 60)}:${Math.floor(durationSec % 60)
+                  .toString()
+                  .padStart(2, '0')}`
+              : '0:00'
 
-          // Simulate download by fetching the URL
-          if (file.url) {
-            const response = await fetch(file.url)
-            const blob = await response.blob()
-
-            await saveTrack({
-              id: `gdrive-${file.id}-${Date.now()}`,
-              title: file.name.replace(/\.[^/.]+$/, ''),
-              composer: file.artist || 'Desconhecido',
-              album: file.album,
-              duration: file.duration || '0:00',
-              file: blob,
-              addedAt: Date.now(),
-              degree: 'Geral',
-              ritual: 'Geral',
-              genre: 'Importado',
-              tone: 'N/A',
-            })
-            successCount++
-          }
+          await saveTrack({
+            id: `gdrive-${file.id}`,
+            gdriveId: file.id,
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            composer: 'Importado do Drive', // Metadata API limited without extra logic
+            duration: durationStr,
+            addedAt: Date.now(),
+            folderId: undefined, // Or we could create a local folder for it
+            degree: 'Geral',
+            ritual: 'Geral',
+            genre: 'Google Drive',
+          })
+          count++
         }
 
         await refreshLibrary()
         toast({
-          title: 'Download Concluído',
-          description: `${successCount} arquivos foram importados para o acervo local.`,
+          title: 'Sincronização Concluída',
+          description: `${count} faixas da pasta "${folderName}" foram indexadas.`,
         })
-      } catch (error) {
-        console.error(error)
+      } catch (e) {
+        console.error(e)
         toast({
           variant: 'destructive',
-          title: 'Erro no Download',
-          description: 'Não foi possível baixar alguns arquivos.',
+          title: 'Erro na Sincronização',
+          description: 'Falha ao processar arquivos da pasta.',
         })
       } finally {
         setIsLoading(false)
@@ -146,6 +194,6 @@ export function useGoogleDrive() {
     listFiles,
     currentPath,
     navigateToFolder,
-    downloadFiles,
+    syncFolder,
   }
 }

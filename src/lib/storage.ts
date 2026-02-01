@@ -6,7 +6,8 @@ export interface LocalTrack {
   composer: string
   album?: string
   duration: string
-  file: Blob
+  file?: Blob // Made optional for Cloud tracks
+  gdriveId?: string // Reference to Google Drive File ID
   addedAt: number
   degree?: string
   ritual?: string
@@ -49,7 +50,7 @@ export interface Playlist {
 }
 
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 3
+const DB_VERSION = 4 // Incremented version for schema change if needed
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -196,6 +197,7 @@ export const exportLibraryData = async (): Promise<string> => {
   const folders = await getFolders()
   const playlists = await getPlaylists()
 
+  // Exclude actual file blobs from backup to keep size manageable, preserve metadata including gdriveId
   const tracksMetadata = tracks.map(({ file, ...meta }) => meta)
 
   return JSON.stringify({
