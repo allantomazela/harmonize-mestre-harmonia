@@ -99,6 +99,14 @@ const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
   undefined,
 )
 
+export const useAudioPlayer = () => {
+  const context = useContext(AudioPlayerContext)
+  if (!context) {
+    throw new Error('useAudioPlayer must be used within an AudioPlayerProvider')
+  }
+  return context
+}
+
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [queue, setQueue] = useState<Track[]>([])
