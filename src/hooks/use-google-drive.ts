@@ -9,7 +9,7 @@ import {
   scanFolderForAudio,
   GDriveFile,
 } from '@/lib/google-drive'
-import { saveTrack } from '@/lib/storage'
+import { saveTrack, getAllTracks, LocalTrack } from '@/lib/storage'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { useToast } from '@/hooks/use-toast'
 
@@ -19,6 +19,25 @@ export interface GoogleUser {
   avatar: string
 }
 
+// Helper to parse filename "Artist - Title.mp3"
+const parseMetadataFromFilename = (filename: string) => {
+  const cleanName = filename.replace(/\.[^/.]+$/, '') // Remove extension
+  const regex = /^(.+?)\s-\s(.+)$/
+  const match = cleanName.match(regex)
+
+  if (match) {
+    return {
+      composer: match[1].trim(),
+      title: match[2].trim(),
+    }
+  }
+
+  return {
+    composer: 'Importado do Drive',
+    title: cleanName,
+  }
+}
+
 export function useGoogleDrive() {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -26,7 +45,7 @@ export function useGoogleDrive() {
   const [isLoading, setIsLoading] = useState(false)
   const [currentPath, setCurrentPath] = useState<GDriveFile[]>([])
 
-  const { refreshLibrary } = useAudioPlayer()
+  const { refreshLibrary, setIsSyncing } = useAudioPlayer()
   const { toast } = useToast()
 
   // Load Scripts on Mount
@@ -36,9 +55,6 @@ export function useGoogleDrive() {
         // GAPI Loaded
         try {
           await initializeGapiClient()
-
-          // Check if previously authorized (crude check via token presence logic or storage)
-          // For simplicity in this flow, we rely on TokenClient callback for auth state
         } catch (error) {
           console.error('GAPI Init Error', error)
         }
@@ -48,8 +64,6 @@ export function useGoogleDrive() {
         initializeTokenClient((response) => {
           if (response && response.access_token) {
             setIsAuthenticated(true)
-            // Fetch basic profile info usually requires 'profile' scope or separate API
-            // For now, we mock the user display or fetch via Drive 'about'
             fetchUserInfo()
           }
         })
@@ -134,13 +148,32 @@ export function useGoogleDrive() {
 
   const syncFolder = useCallback(
     async (folderId: string, folderName: string) => {
+      setIsSyncing(true)
       setIsLoading(true)
-      let count = 0
+
+      toast({
+        title: 'Sincronização Iniciada',
+        description: `Buscando arquivos em "${folderName}" e subpastas...`,
+      })
+
+      let newCount = 0
+      let updatedCount = 0
+      let duplicates = 0
+
       try {
+        // 1. Fetch current local library to check for duplicates/updates
+        const localTracks = await getAllTracks()
+        const localMap = new Map(
+          localTracks.filter((t) => t.gdriveId).map((t) => [t.gdriveId, t]),
+        )
+
+        // 2. Scan Google Drive recursively
         const files = await scanFolderForAudio(folderId)
 
         for (const file of files) {
-          // Parse metadata if available, otherwise default
+          const { composer, title } = parseMetadataFromFilename(file.name)
+
+          // Metadata Parsing
           const durationSec = file.durationMillis
             ? parseInt(file.durationMillis) / 1000
             : 0
@@ -151,38 +184,77 @@ export function useGoogleDrive() {
                   .padStart(2, '0')}`
               : '0:00'
 
-          await saveTrack({
-            id: `gdrive-${file.id}`,
-            gdriveId: file.id,
-            title: file.name.replace(/\.[^/.]+$/, ''),
-            composer: 'Importado do Drive', // Metadata API limited without extra logic
-            duration: durationStr,
-            addedAt: Date.now(),
-            folderId: undefined, // Or we could create a local folder for it
-            degree: 'Geral',
-            ritual: 'Geral',
-            genre: 'Google Drive',
-          })
-          count++
+          const fileSize = file.size ? parseInt(file.size) : 0
+          const modifiedTime = file.modifiedTime
+            ? new Date(file.modifiedTime).getTime()
+            : 0
+
+          // 3. Conflict Resolution
+          if (localMap.has(file.id)) {
+            const existing = localMap.get(file.id)!
+
+            // Check if file on Drive is newer than our local metadata update
+            if (modifiedTime > (existing.updatedAt || existing.addedAt)) {
+              // Update logic
+              await saveTrack({
+                ...existing,
+                title,
+                composer,
+                duration: durationStr,
+                size: fileSize,
+                updatedAt: Date.now(),
+                // Keep user preferences like ritual/degree
+              })
+              updatedCount++
+            } else {
+              // Exact match or older, skip
+              duplicates++
+            }
+          } else {
+            // New File
+            await saveTrack({
+              id: `gdrive-${file.id}`,
+              gdriveId: file.id,
+              title,
+              composer, // Parsed from filename
+              duration: durationStr,
+              addedAt: Date.now(),
+              updatedAt: Date.now(),
+              size: fileSize,
+              folderId: undefined,
+              degree: 'Geral',
+              ritual: 'Geral',
+              genre: 'Google Drive', // Fallback genre
+            })
+            newCount++
+          }
         }
 
         await refreshLibrary()
+
+        let description = `${newCount} novos arquivos importados.`
+        if (updatedCount > 0) description += ` ${updatedCount} atualizados.`
+        if (duplicates > 0)
+          description += ` ${duplicates} já existentes ignorados.`
+
         toast({
           title: 'Sincronização Concluída',
-          description: `${count} faixas da pasta "${folderName}" foram indexadas.`,
+          description,
+          variant: newCount > 0 || updatedCount > 0 ? 'default' : 'default', // could use different variant
         })
       } catch (e) {
         console.error(e)
         toast({
           variant: 'destructive',
           title: 'Erro na Sincronização',
-          description: 'Falha ao processar arquivos da pasta.',
+          description: 'Falha ao processar arquivos. Tente novamente.',
         })
       } finally {
         setIsLoading(false)
+        setIsSyncing(false)
       }
     },
-    [refreshLibrary, toast],
+    [refreshLibrary, toast, setIsSyncing],
   )
 
   return {

@@ -44,6 +44,7 @@ export interface Track {
   bpm?: string
   year?: string
   tone?: string
+  updatedAt?: number
 }
 
 export type AcousticEnvironment = 'none' | 'temple' | 'cathedral' | 'small-room'
@@ -66,6 +67,7 @@ interface AudioPlayerContextType {
   fadeOutDuration: number
   fadeCurve: FadeCurve
   isLoading: boolean
+  isSyncing: boolean // Added sync state
   isAutoPlay: boolean
   togglePlay: () => void
   playNext: () => void
@@ -93,6 +95,7 @@ interface AudioPlayerContextType {
   updatePlaylist: (playlist: Playlist) => Promise<void>
   getPlaylistTracks: (playlist: Playlist) => Track[]
   generateRitualSession: (templateId: string) => void
+  setIsSyncing: (syncing: boolean) => void // Exposed setter
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -124,6 +127,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [fadeOutDuration, setFadeOutDuration] = useState(3.0)
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false) // Sync state
   const [isAutoPlay, setIsAutoPlay] = useState(true)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -162,6 +166,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         genre: lt.genre,
         bpm: lt.bpm,
         year: lt.year,
+        updatedAt: lt.updatedAt,
       }))
 
       const allTracks = [...musicLibrary, ...formattedLocalTracks]
@@ -712,6 +717,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       year: updatedTrack.year,
       occasion: updatedTrack.occasion,
       tone: updatedTrack.tone,
+      updatedAt: updatedTrack.updatedAt || Date.now(),
     }
     await saveTrack(localTrack)
     await refreshLibrary()
@@ -793,6 +799,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         fadeOutDuration,
         fadeCurve,
         isLoading,
+        isSyncing,
         isAutoPlay,
         togglePlay,
         playNext,
@@ -820,6 +827,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         updateTrack,
         triggerFadeOut,
         generateRitualSession,
+        setIsSyncing,
       }}
     >
       {children}

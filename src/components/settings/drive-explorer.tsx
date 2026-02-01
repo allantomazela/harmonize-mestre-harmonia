@@ -3,7 +3,6 @@ import { useGoogleDrive } from '@/hooks/use-google-drive'
 import { GDriveFile } from '@/lib/google-drive'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Folder,
@@ -14,10 +13,11 @@ import {
   LogOut,
   RefreshCw,
   Info,
+  Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
 export function DriveExplorer() {
   const {
@@ -28,13 +28,17 @@ export function DriveExplorer() {
     listFiles,
     currentPath,
     navigateToFolder,
-    isLoading,
+    isLoading: isDriveLoading,
     syncFolder,
   } = useGoogleDrive()
 
+  const { isSyncing } = useAudioPlayer()
+
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
-  const [syncedFolders, setSyncedFolders] = useState<Set<string>>(new Set())
+
+  // Track specific folder sync status locally for UI feedback
+  const [syncedFolderId, setSyncedFolderId] = useState<string | null>(null)
 
   // Load files when path changes
   useEffect(() => {
@@ -48,16 +52,11 @@ export function DriveExplorer() {
     }
   }, [isAuthenticated, currentPath, listFiles])
 
-  const handleSyncToggle = (e: React.MouseEvent, folder: GDriveFile) => {
+  const handleSyncToggle = async (e: React.MouseEvent, folder: GDriveFile) => {
     e.stopPropagation()
-    // Logic: In this demo, sync implies importing metadata.
-    // Ideally we would un-sync (delete tracks) too, but let's stick to import.
-    syncFolder(folder.id, folder.name)
-    setSyncedFolders((prev) => {
-      const next = new Set(prev)
-      next.add(folder.id)
-      return next
-    })
+    setSyncedFolderId(folder.id)
+    await syncFolder(folder.id, folder.name)
+    setSyncedFolderId(null)
   }
 
   if (!isAuthenticated) {
@@ -69,8 +68,8 @@ export function DriveExplorer() {
         <div className="text-center space-y-2 max-w-sm">
           <h3 className="text-lg font-bold">Conectar ao Google Drive</h3>
           <p className="text-muted-foreground text-sm">
-            Autentique-se para acessar suas músicas reais na nuvem. Nenhum
-            arquivo será excluído do seu Drive.
+            Autentique-se para acessar suas músicas reais na nuvem. Metadados
+            como Artista e Título serão extraídos automaticamente.
           </p>
         </div>
 
@@ -85,10 +84,10 @@ export function DriveExplorer() {
 
         <Button
           onClick={login}
-          disabled={isLoading}
+          disabled={isDriveLoading}
           className="gap-2 w-full max-w-xs h-10"
         >
-          {isLoading ? (
+          {isDriveLoading ? (
             'Carregando...'
           ) : (
             <>
@@ -128,7 +127,7 @@ export function DriveExplorer() {
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               {user?.email}
               <span className="flex items-center text-green-600 dark:text-green-400 font-medium text-[10px] bg-green-500/10 px-1.5 py-0.5 rounded-full border border-green-500/20">
-                Connected
+                Conectado
               </span>
             </p>
           </div>
@@ -203,7 +202,7 @@ export function DriveExplorer() {
             files.map((file) => {
               const isFolder =
                 file.mimeType === 'application/vnd.google-apps.folder'
-              const isSynced = syncedFolders.has(file.id)
+              const isSyncingThis = syncedFolderId === file.id && isSyncing
 
               return (
                 <div
@@ -246,22 +245,29 @@ export function DriveExplorer() {
 
                   {isFolder && (
                     <Button
-                      variant={isSynced ? 'secondary' : 'ghost'}
+                      variant={isSyncingThis ? 'secondary' : 'ghost'}
                       size="sm"
                       className={cn(
                         'gap-2 h-8',
-                        isSynced &&
-                          'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400',
+                        isSyncingThis &&
+                          'bg-primary/10 text-primary border border-primary/20',
+                        !isSyncingThis &&
+                          'text-muted-foreground hover:text-foreground',
                       )}
                       onClick={(e) => handleSyncToggle(e, file)}
-                      disabled={isLoading}
+                      disabled={isSyncing}
                     >
-                      {isLoading && isSynced ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      {isSyncingThis ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          Sincronizando...
+                        </>
                       ) : (
-                        <RefreshCw className="w-3 h-3" />
+                        <>
+                          <RefreshCw className="w-3 h-3" />
+                          Sincronizar
+                        </>
                       )}
-                      {isSynced ? 'Indexado' : 'Sincronizar'}
                     </Button>
                   )}
                 </div>
@@ -277,8 +283,9 @@ export function DriveExplorer() {
       </ScrollArea>
 
       <div className="p-3 bg-muted/20 border-t text-xs text-center text-muted-foreground">
-        Dica: Clique em "Sincronizar" numa pasta para importar todas as músicas
-        contidas nela (incluindo subpastas).
+        Dica: Clique em "Sincronizar" numa pasta para importar e atualizar
+        músicas. Metadados serão extraídos do nome do arquivo (Artista -
+        Título).
       </div>
     </div>
   )

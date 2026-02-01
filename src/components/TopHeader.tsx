@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, ChevronRight, HardDrive } from 'lucide-react'
+import { Bell, ChevronRight, HardDrive, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -8,9 +8,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
 export function TopHeader() {
   const location = useLocation()
+  const { isSyncing } = useAudioPlayer()
 
   const getBreadcrumbs = () => {
     const path = location.pathname
@@ -56,6 +58,15 @@ export function TopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
+        {isSyncing && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 animate-fade-in">
+            <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+            <span className="text-xs font-medium text-blue-500">
+              Sincronizando...
+            </span>
+          </div>
+        )}
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

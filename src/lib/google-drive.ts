@@ -6,7 +6,6 @@ const DISCOVERY_DOCS = [
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly'
 
 // These should be set in your .env file as VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY
-// For the purpose of this implementation, we check for them, but the app should gracefully handle their absence.
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || ''
 
@@ -22,6 +21,8 @@ export interface GDriveFile {
   thumbnailLink?: string
   durationMillis?: string
   parents?: string[]
+  createdTime?: string
+  modifiedTime?: string
 }
 
 export const loadGoogleScripts = (
@@ -46,7 +47,6 @@ export const loadGoogleScripts = (
 export const initializeGapiClient = async () => {
   if (!API_KEY) {
     console.warn('VITE_GOOGLE_API_KEY is missing.')
-    // We proceed to allow showing the UI state, but API calls will likely fail or be limited
   }
 
   await window.gapi.client.init({
@@ -98,7 +98,7 @@ export const listDriveFiles = async (
     const response = await window.gapi.client.drive.files.list({
       pageSize: 50,
       fields:
-        'nextPageToken, files(id, name, mimeType, size, thumbnailLink, videoMediaMetadata, parents)',
+        'nextPageToken, files(id, name, mimeType, size, thumbnailLink, videoMediaMetadata, parents, createdTime, modifiedTime)',
       q: `'${folderId}' in parents and (mimeType contains 'audio/' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`,
       orderBy: 'folder, name',
     })
@@ -138,7 +138,8 @@ export const scanFolderForAudio = async (
   // List all files in the current folder
   const response = await window.gapi.client.drive.files.list({
     pageSize: 100,
-    fields: 'files(id, name, mimeType, size, durationMillis)',
+    fields:
+      'files(id, name, mimeType, size, durationMillis, createdTime, modifiedTime)',
     q: `'${folderId}' in parents and (mimeType contains 'audio/' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`,
   })
 

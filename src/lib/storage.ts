@@ -9,6 +9,8 @@ export interface LocalTrack {
   file?: Blob // Made optional for Cloud tracks
   gdriveId?: string // Reference to Google Drive File ID
   addedAt: number
+  updatedAt?: number // Last sync update timestamp
+  size?: number // File size in bytes for conflict detection
   degree?: string
   ritual?: string
   folderId?: string
@@ -50,7 +52,7 @@ export interface Playlist {
 }
 
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 4 // Incremented version for schema change if needed
+const DB_VERSION = 5 // Incremented version for schema change if needed
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -263,6 +265,8 @@ export const importLibraryData = async (jsonString: string): Promise<void> => {
       if (currentMap.has(trackMeta.id)) {
         const existing = currentMap.get(trackMeta.id)!
         await saveTrack({ ...existing, ...trackMeta })
+      } else {
+        await saveTrack(trackMeta)
       }
     }
   } catch (e) {
