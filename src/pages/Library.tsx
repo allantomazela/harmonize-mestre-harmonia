@@ -18,12 +18,14 @@ import {
   Plus,
   WifiOff,
   Wifi,
+  CloudDownload,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { saveTrack, deleteTrack } from '@/lib/storage'
 import { FolderSidebar } from '@/components/library/folder-sidebar'
 import { EditTrackDialog } from '@/components/library/edit-track-dialog'
 import { CreatePlaylistDialog } from '@/components/library/create-playlist-dialog'
+import { ImportStreamDialog } from '@/components/library/import-stream-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
 
@@ -51,6 +53,7 @@ export default function Library() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
   const [trackToEdit, setTrackToEdit] = useState<Track | null>(null)
   const [isPlaylistDialogOpen, setIsPlaylistDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [filters, setFilters] = useState<{
     genres: string[]
     composers: string[]
@@ -160,7 +163,12 @@ export default function Library() {
 
   const handleBulkDelete = async () => {
     for (const id of selectedItems) {
-      if (id.startsWith('local-') || id.startsWith('gdrive-')) {
+      if (
+        id.startsWith('local-') ||
+        id.startsWith('gdrive-') ||
+        id.startsWith('spotify-') ||
+        id.startsWith('soundcloud-')
+      ) {
         await deleteTrack(id)
       }
     }
@@ -265,6 +273,14 @@ export default function Library() {
             />
             <Button onClick={handleImportClick} className="shadow-sm">
               <FolderInput className="w-4 h-4 mr-2" /> Importar
+            </Button>
+
+            <Button
+              onClick={() => setIsImportDialogOpen(true)}
+              variant="outline"
+              className="shadow-sm gap-2"
+            >
+              <CloudDownload className="w-4 h-4" /> Services
             </Button>
 
             <div className="relative flex-1 md:w-64 ml-2">
@@ -437,6 +453,10 @@ export default function Library() {
         isOpen={isPlaylistDialogOpen}
         onClose={() => setIsPlaylistDialogOpen(false)}
         onCreate={createPlaylist}
+      />
+      <ImportStreamDialog
+        isOpen={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
       />
     </div>
   )

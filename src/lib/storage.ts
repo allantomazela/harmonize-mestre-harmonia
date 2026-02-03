@@ -10,7 +10,9 @@ export interface LocalTrack {
   gdriveId?: string // Reference to Cloud File ID
   dropboxId?: string
   onedriveId?: string
-  cloudProvider?: 'google' | 'dropbox' | 'onedrive'
+  spotifyId?: string
+  soundcloudId?: string
+  cloudProvider?: 'google' | 'dropbox' | 'onedrive' | 'spotify' | 'soundcloud'
   addedAt: number
   updatedAt?: number
   size?: number
@@ -24,6 +26,11 @@ export interface LocalTrack {
   tone?: string
   offlineAvailable?: boolean // Explicit flag for offline availability
   url?: string // External URL if not blob
+
+  // New DJ Features
+  cues?: number[]
+  trimStart?: number
+  trimEnd?: number
 }
 
 export interface Folder {
@@ -58,7 +65,7 @@ export interface Playlist {
 }
 
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 6 // Incremented for schema updates
+const DB_VERSION = 7 // Incremented for schema updates
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {

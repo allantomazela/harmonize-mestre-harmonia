@@ -18,6 +18,7 @@ import {
   Cloud,
   FileText,
   Music,
+  Globe,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
@@ -32,6 +33,7 @@ import { AppearanceSettings } from '@/components/settings/appearance-settings'
 import { NotificationSettings } from '@/components/settings/notification-settings'
 import { CloudExplorer } from '@/components/settings/cloud-explorer'
 import { AudioSettings } from '@/components/settings/audio-settings'
+import { IntegrationsSettings } from '@/components/settings/integrations-settings'
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -156,12 +158,13 @@ export default function Settings() {
       <h1 className="text-3xl font-bold text-primary">Configurações</h1>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-[850px]">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="audio">Áudio</TabsTrigger>
           <TabsTrigger value="lodge">Loja</TabsTrigger>
           <TabsTrigger value="local">Dados</TabsTrigger>
           <TabsTrigger value="cloud">Nuvem</TabsTrigger>
+          <TabsTrigger value="integrations">Apps</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6 mt-6">
@@ -369,6 +372,10 @@ export default function Settings() {
               <CloudExplorer />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6 mt-6">
+          <IntegrationsSettings />
         </TabsContent>
       </Tabs>
     </div>

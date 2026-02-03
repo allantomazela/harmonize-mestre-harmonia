@@ -17,6 +17,7 @@ import {
   Wand2,
   RefreshCcw,
   Book,
+  Download,
 } from 'lucide-react'
 import { TrackRow } from '@/components/track-row'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
@@ -49,6 +50,7 @@ export default function PlaylistDetails() {
     playlists,
     getPlaylistTracks,
     updatePlaylist,
+    exportPlaylist,
   } = useAudioPlayer()
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -71,6 +73,10 @@ export default function PlaylistDetails() {
       replaceQueue(tracks)
       setTimeout(() => skipToIndex(0), 0)
     }
+  }
+
+  const handleExport = () => {
+    exportPlaylist(tracks, playlist.title)
   }
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -183,6 +189,15 @@ export default function PlaylistDetails() {
               disabled={tracks.length === 0}
             >
               <Play className="w-4 h-4 mr-2 fill-current" /> Reproduzir
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-full gap-2"
+              onClick={handleExport}
+              disabled={tracks.length === 0}
+            >
+              <Download className="w-4 h-4" /> Export Mix
             </Button>
 
             <Button

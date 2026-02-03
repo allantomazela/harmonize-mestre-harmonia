@@ -9,8 +9,10 @@ import {
   Volume2,
   VolumeX,
   TrendingDown,
+  Headphones,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
 interface PlayerControlsProps {
   isPlaying: boolean
@@ -45,6 +47,17 @@ export function PlayerControls({
   onVolumeChange,
   currentTrackId,
 }: PlayerControlsProps) {
+  const {
+    queue,
+    currentIndex,
+    toggleCue,
+    cueTrack,
+    isCuePlaying,
+    currentTrack,
+  } = useAudioPlayer()
+
+  const nextTrack = queue[currentIndex + 1]
+
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00'
     const mins = Math.floor(seconds / 60)
@@ -53,6 +66,13 @@ export function PlayerControls({
   }
 
   const remaining = Math.max(0, duration - progress)
+
+  // Visual BPM Sync Indicator
+  // Simple logic: If current track has BPM and Next track has BPM, show match quality
+  const currentBPM = currentTrack?.bpm ? parseInt(currentTrack.bpm) : 0
+  const nextBPM = nextTrack?.bpm ? parseInt(nextTrack.bpm) : 0
+  const bpmDiff = Math.abs(currentBPM - nextBPM)
+  const isBPMMatch = currentBPM > 0 && nextBPM > 0 && bpmDiff < 5
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -66,6 +86,26 @@ export function PlayerControls({
                 {formatTime(progress)}
               </span>
             </div>
+
+            {/* BPM Indicator */}
+            {currentBPM > 0 && (
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  BPM SYNC
+                </span>
+                <div
+                  className={cn(
+                    'text-xs font-mono font-bold px-2 py-0.5 rounded',
+                    isBPMMatch
+                      ? 'bg-green-500/20 text-green-500'
+                      : 'bg-yellow-500/20 text-yellow-500',
+                  )}
+                >
+                  {currentBPM} {nextBPM > 0 && `→ ${nextBPM}`}
+                </div>
+              </div>
+            )}
+
             <div className="text-right">
               <span
                 className={cn(
@@ -80,14 +120,14 @@ export function PlayerControls({
             </div>
           </div>
 
-          <div className="relative h-16 w-full flex items-center justify-center bg-black/20 rounded-lg overflow-hidden border border-white/5">
+          <div className="relative h-24 w-full flex items-center justify-center bg-black/20 rounded-lg overflow-hidden border border-white/5">
             {currentTrackId ? (
               <Waveform
                 trackId={currentTrackId}
                 progress={progress}
                 duration={duration || 1}
                 onSeek={onSeek}
-                height={64}
+                height={96}
               />
             ) : (
               <div className="w-full h-[1px] bg-white/10" />
@@ -124,18 +164,26 @@ export function PlayerControls({
                 </div>
               </div>
             </Button>
+
+            {/* Cue Button */}
             <Button
               variant="outline"
-              onClick={onFadeOut}
-              className="h-12 px-5 border-2 border-border bg-transparent text-muted-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-300 group"
+              onClick={() => nextTrack && toggleCue(nextTrack)}
+              disabled={!nextTrack}
+              className={cn(
+                'h-12 px-5 border-2 transition-all duration-300 relative overflow-hidden group',
+                cueTrack?.id === nextTrack?.id && isCuePlaying
+                  ? 'border-yellow-500 bg-yellow-500/10 text-yellow-500'
+                  : 'border-border bg-transparent text-muted-foreground hover:border-yellow-500/50',
+              )}
             >
               <div className="flex flex-col items-center">
-                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1 group-hover:text-destructive transition-colors">
-                  Output
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none mb-1 group-hover:text-yellow-500 transition-colors">
+                  Next Cue
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <TrendingDown className="w-3.5 h-3.5" />
-                  <span className="text-xs font-bold">FADE</span>
+                  <Headphones className="w-3.5 h-3.5" />
+                  <span className="text-xs font-bold">PREVIEW</span>
                 </div>
               </div>
             </Button>
@@ -179,6 +227,16 @@ export function PlayerControls({
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onFadeOut}
+              className="h-10 w-10 border-border bg-transparent text-muted-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Fade Out"
+            >
+              <TrendingDown className="w-4 h-4" />
+            </Button>
+
             <div className="flex items-center gap-3 bg-secondary/30 p-3 rounded-xl border border-white/5 h-12 w-full md:w-40">
               <Button
                 variant="ghost"

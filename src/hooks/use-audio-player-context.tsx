@@ -24,6 +24,8 @@ import {
 } from '@/lib/storage'
 import { ritualTemplates, matchTracksToTemplate } from '@/lib/ritual-templates'
 import { fetchDriveFileBlob } from '@/lib/google-drive'
+import { renderPlaylistMix } from '@/lib/audio-exporter'
+import { isServiceConnected } from '@/lib/integrations'
 
 export interface Track {
   id: string
@@ -35,7 +37,9 @@ export interface Track {
   gdriveId?: string
   dropboxId?: string
   onedriveId?: string
-  cloudProvider?: 'google' | 'dropbox' | 'onedrive'
+  spotifyId?: string
+  soundcloudId?: string
+  cloudProvider?: 'google' | 'dropbox' | 'onedrive' | 'spotify' | 'soundcloud'
   cover?: string
   duration: string
   degree: string
@@ -49,6 +53,11 @@ export interface Track {
   tone?: string
   updatedAt?: number
   offlineAvailable?: boolean
+
+  // Interactive DJ Props
+  cues?: number[]
+  trimStart?: number
+  trimEnd?: number
 }
 
 export type AcousticEnvironment = 'none' | 'temple' | 'cathedral' | 'small-room'
@@ -79,6 +88,19 @@ interface AudioPlayerContextType {
   isSyncing: boolean
   isAutoPlay: boolean
   isOfflineMode: boolean
+
+  // Cueing
+  cueTrack: Track | undefined
+  isCuePlaying: boolean
+  toggleCue: (track: Track) => void
+  addCuePoint: (time: number) => Promise<void>
+  setTrim: (start: number, end: number) => Promise<void>
+
+  // Integration States
+  connectedServices: { spotify: boolean; soundcloud: boolean }
+  checkIntegrations: () => void
+
+  // Methods
   togglePlay: () => void
   playNext: () => void
   playPrev: () => void
@@ -113,6 +135,7 @@ interface AudioPlayerContextType {
   downloadTrackForOffline: (track: Track) => Promise<void>
   removeTrackFromOffline: (track: Track) => Promise<void>
   toggleOfflineMode: () => void
+  exportPlaylist: (tracks: Track[], title: string) => Promise<void>
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -141,7 +164,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [acousticEnvironment, setAcousticEnvironment] =
     useState<AcousticEnvironment>('none')
 
-  // Audio Settings State with Persistence
   const [crossfadeDuration, setCrossfadeDuration] = useState(() =>
     Number(localStorage.getItem('harmonize-crossfade') ?? 2),
   )
@@ -163,6 +185,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+
+  // Cue State
+  const [cueTrack, setCueTrack] = useState<Track | undefined>(undefined)
+  const [isCuePlaying, setIsCuePlaying] = useState(false)
+
+  // Integration State
+  const [connectedServices, setConnectedServices] = useState({
+    spotify: false,
+    soundcloud: false,
+  })
 
   // Initialize autoPlay from localStorage
   const [isAutoPlay, setIsAutoPlay] = useState(() => {
@@ -198,6 +230,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   )
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const cueAudioRef = useRef<HTMLAudioElement | null>(null)
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const objectUrlRef = useRef<string | null>(null)
@@ -221,6 +254,17 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const checkIntegrations = useCallback(() => {
+    setConnectedServices({
+      spotify: isServiceConnected('spotify'),
+      soundcloud: isServiceConnected('soundcloud'),
+    })
+  }, [])
+
+  useEffect(() => {
+    checkIntegrations()
+  }, [checkIntegrations])
+
   const refreshLibrary = useCallback(async () => {
     try {
       const [localTracks, loadedFolders, loadedPlaylists] = await Promise.all([
@@ -231,62 +275,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       const dbTracksMap = new Map(localTracks.map((t) => [t.id, t]))
 
-      // Merge mock library with overrides from DB
       const mergedMockTracks = musicLibrary.map((mockTrack) => {
         const override = dbTracksMap.get(mockTrack.id)
         if (override) {
-          // If override exists, prefer its metadata
           return {
             ...mockTrack,
-            title: override.title,
-            composer: override.composer,
-            album: override.album,
-            genre: override.genre,
-            year: override.year,
-            bpm: override.bpm,
-            tone: override.tone,
-            ritual: override.ritual,
-            degree: override.degree,
-            // Keep original URL/cover if not in override (usually overrides are just metadata for mock)
-            // But if it's downloaded, it will have file blob in override
-            file: override.file,
-            offlineAvailable: override.offlineAvailable,
-            isLocal: true, // Mark as managed by DB now
+            ...override,
+            isLocal: true,
           }
         }
         return mockTrack
       })
 
-      // Files that are purely local (imported) and not overrides of mock data
       const newLocalTracks = localTracks
         .filter((t) => !musicLibrary.find((m) => m.id === t.id))
         .map((lt) => ({
-          id: lt.id,
-          title: lt.title,
-          composer: lt.composer,
-          album: lt.album,
-          file: lt.file,
-          gdriveId: lt.gdriveId,
-          dropboxId: lt.dropboxId,
-          onedriveId: lt.onedriveId,
-          cloudProvider: lt.cloudProvider,
-          duration: lt.duration,
-          degree: lt.degree || 'Geral',
-          ritual: lt.ritual || 'Geral',
-          occasion: lt.occasion,
-          tone: lt.tone,
+          ...lt,
           isLocal: true,
-          folderId: lt.folderId,
-          genre: lt.genre,
-          bpm: lt.bpm,
-          year: lt.year,
-          updatedAt: lt.updatedAt,
           offlineAvailable: lt.offlineAvailable || !!lt.file,
         }))
 
       let allTracks = [...mergedMockTracks, ...newLocalTracks] as Track[]
 
-      // Filter for offline mode
       if (isOfflineMode) {
         allTracks = allTracks.filter((t) => t.offlineAvailable)
       }
@@ -295,7 +305,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       setFolders(loadedFolders)
       setPlaylists(loadedPlaylists)
 
-      // Update queue if it contains outdated tracks
       setQueue((prev) => {
         if (prev.length === 0) return allTracks
         return prev.map(
@@ -312,7 +321,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
-  // Audio Context Setup with Effects
+  // Audio Context Setup
   useEffect(() => {
     if (!audioContextRef.current && audioRef.current && isPlaying) {
       try {
@@ -325,13 +334,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         const gain = ctx.createGain()
         const convolver = ctx.createConvolver()
 
-        // Bass Boost
         const bassBoost = ctx.createBiquadFilter()
         bassBoost.type = 'lowshelf'
-        bassBoost.frequency.value = 200 // Hz
-        bassBoost.gain.value = 0 // dB
+        bassBoost.frequency.value = 200
+        bassBoost.gain.value = 0
 
-        // Compressor (Normalization)
         const compressor = ctx.createDynamicsCompressor()
         compressor.threshold.value = -24
         compressor.knee.value = 30
@@ -339,7 +346,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         compressor.attack.value = 0.003
         compressor.release.value = 0.25
 
-        // Impulse Response
         const rate = ctx.sampleRate
         const length = rate * 2
         const decay = 2.0
@@ -354,19 +360,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         }
         convolver.buffer = impulse
 
-        // Connections
-        // Source -> Bass -> Compressor -> (Split for Reverb) -> Destination
         source.connect(bassBoost)
         bassBoost.connect(compressor)
 
-        // Store refs
         sourceNodeRef.current = source
         gainNodeRef.current = gain
         convolverNodeRef.current = convolver
         bassBoostNodeRef.current = bassBoost
         compressorNodeRef.current = compressor
 
-        // Initial routing (Dry)
         compressor.connect(gain)
         gain.connect(ctx.destination)
       } catch (e) {
@@ -375,10 +377,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying])
 
-  // Apply Effects Updates
   useEffect(() => {
     if (bassBoostNodeRef.current) {
-      // Map 0-100 to 0-15dB
       bassBoostNodeRef.current.gain.value = (bassBoostLevel / 100) * 15
     }
   }, [bassBoostLevel])
@@ -389,13 +389,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       gainNodeRef.current &&
       audioContextRef.current
     ) {
-      // Toggle compressor in/out of chain is complex dynamically,
-      // easier to set ratio to 1 (off) or 12 (on)
       compressorNodeRef.current.ratio.value = isNormalizationEnabled ? 12 : 1
     }
   }, [isNormalizationEnabled])
 
-  // Environment switching
   useEffect(() => {
     if (
       !audioContextRef.current ||
@@ -408,17 +405,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       return
 
     try {
-      // Disconnect everything relevant to reverb path
       compressorNodeRef.current.disconnect()
       convolverNodeRef.current.disconnect()
 
       if (acousticEnvironment === 'none') {
         compressorNodeRef.current.connect(gainNodeRef.current)
       } else {
-        // Wet path
         compressorNodeRef.current.connect(convolverNodeRef.current)
         convolverNodeRef.current.connect(gainNodeRef.current)
-        // Dry path (parallel)
         compressorNodeRef.current.connect(gainNodeRef.current)
       }
     } catch (e) {
@@ -426,7 +420,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [acousticEnvironment])
 
-  // Fade Logic
+  // Fade Logic & Helpers
   const currentTrack = queue[currentIndex]
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
     if (curve === 'exponential') return t * t
@@ -453,7 +447,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       }
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current)
 
-      // If Instant transition type, skip fade logic if duration is supposed to be 0
       if (duration <= 0) {
         audioRef.current.volume =
           targetBaseVolume === 0 ? 0 : getEffectiveVolume()
@@ -517,7 +510,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setIsPlaying(false)
   }, [])
 
-  // Load and Play Logic
   const loadAndPlay = useCallback(
     async (track: Track) => {
       if (!audioRef.current) return
@@ -571,6 +563,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         }
 
         audioRef.current.src = src
+        // Apply start trim if exists
+        if (track.trimStart) {
+          audioRef.current.currentTime = track.trimStart
+        }
         audioRef.current.load()
 
         if (transitionType === 'instant') {
@@ -599,7 +595,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       isPlaying,
       performFade,
       volume,
-      crossfadeDuration, // Use unified duration
+      crossfadeDuration,
       transitionType,
       fadeCurve,
       safePlay,
@@ -609,7 +605,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  // Setup Audio Event Listeners
+  // Listeners
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
@@ -618,7 +614,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
     const audio = audioRef.current
     const updateTime = () => {
-      if (!Number.isNaN(audio.currentTime)) setCurrentTime(audio.currentTime)
+      if (!Number.isNaN(audio.currentTime)) {
+        setCurrentTime(audio.currentTime)
+        // Check Trim End
+        if (
+          currentTrack?.trimEnd &&
+          audio.currentTime >= currentTrack.trimEnd
+        ) {
+          handleEnded()
+        }
+      }
     }
     const updateDuration = () => {
       if (!Number.isNaN(audio.duration) && audio.duration !== Infinity)
@@ -658,7 +663,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('canplay', handleCanPlay)
       audio.removeEventListener('error', handleError)
     }
-  }, [isAutoPlay])
+  }, [isAutoPlay, currentTrack]) // Depends on currentTrack for trim end check
 
   useEffect(() => {
     if (
@@ -668,6 +673,90 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     )
       audioRef.current.volume = getEffectiveVolume()
   }, [volume, trackVolumes, currentTrack, getEffectiveVolume, transitionType])
+
+  // Cue Player Logic
+  useEffect(() => {
+    if (!cueAudioRef.current) {
+      cueAudioRef.current = new Audio()
+    }
+    const cueAudio = cueAudioRef.current
+
+    if (cueTrack) {
+      // Very simple load, assumes URL is available
+      if (cueTrack.url && cueAudio.src !== cueTrack.url) {
+        cueAudio.src = cueTrack.url
+        cueAudio.load()
+      }
+    } else {
+      cueAudio.pause()
+      cueAudio.src = ''
+    }
+  }, [cueTrack])
+
+  useEffect(() => {
+    if (cueAudioRef.current) {
+      if (isCuePlaying) cueAudioRef.current.play().catch(console.error)
+      else cueAudioRef.current.pause()
+    }
+  }, [isCuePlaying])
+
+  const toggleCue = (track: Track) => {
+    if (cueTrack?.id === track.id) {
+      setIsCuePlaying(!isCuePlaying)
+      if (isCuePlaying) setCueTrack(undefined) // Stop and clear if we toggle off
+    } else {
+      setCueTrack(track)
+      setIsCuePlaying(true)
+    }
+  }
+
+  const addCuePoint = async (time: number) => {
+    if (!currentTrack) return
+    const newCues = [...(currentTrack.cues || []), time].sort((a, b) => a - b)
+    await updateTrack({ ...currentTrack, cues: newCues })
+    toast({
+      title: 'Cue Point Added',
+      description: `Marker set at ${time.toFixed(1)}s`,
+    })
+  }
+
+  const setTrim = async (start: number, end: number) => {
+    if (!currentTrack) return
+    await updateTrack({ ...currentTrack, trimStart: start, trimEnd: end })
+    toast({
+      title: 'Track Trimmed',
+      description: 'Start and End points saved.',
+    })
+  }
+
+  const exportPlaylist = async (tracks: Track[], title: string) => {
+    toast({
+      title: 'Exporting...',
+      description: 'Rendering audio mix. This may take a moment.',
+    })
+    try {
+      const blob = await renderPlaylistMix(tracks, crossfadeDuration)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${title} - Mix.wav`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({
+        title: 'Export Complete',
+        description: 'Playlist mix downloaded.',
+      })
+    } catch (e) {
+      console.error(e)
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: 'Could not render audio.',
+      })
+    }
+  }
 
   const setTrackVolume = useCallback((trackId: string, vol: number) => {
     setTrackVolumes((prev) => ({
@@ -829,22 +918,20 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   const updateTrack = async (updatedTrack: Track) => {
-    // Persistent Metadata Override
-    // We save the track to IDB regardless of origin.
-    // If it was a mock track, it will now be in IDB with the same ID and act as override.
     const local: LocalTrack = {
       id: updatedTrack.id,
       title: updatedTrack.title,
       composer: updatedTrack.composer,
       album: updatedTrack.album,
       duration: updatedTrack.duration,
-      // If file exists (local or downloaded), keep it. If mock, file undefined.
       file: updatedTrack.file,
       gdriveId: updatedTrack.gdriveId,
       dropboxId: updatedTrack.dropboxId,
       onedriveId: updatedTrack.onedriveId,
+      spotifyId: updatedTrack.spotifyId,
+      soundcloudId: updatedTrack.soundcloudId,
       cloudProvider: updatedTrack.cloudProvider,
-      addedAt: Date.now(), // Or preserve
+      addedAt: Date.now(),
       updatedAt: Date.now(),
       offlineAvailable: updatedTrack.offlineAvailable,
       degree: updatedTrack.degree,
@@ -854,8 +941,12 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       year: updatedTrack.year,
       tone: updatedTrack.tone,
       folderId: updatedTrack.folderId,
-      // URL might be needed if it's external (SoundHelix) and not downloaded
       url: updatedTrack.url,
+
+      // Save DJ Features
+      cues: updatedTrack.cues,
+      trimStart: updatedTrack.trimStart,
+      trimEnd: updatedTrack.trimEnd,
     }
 
     await saveTrack(local)
@@ -893,7 +984,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     [library, replaceQueue],
   )
 
-  // Offline Management
   const downloadTrackForOffline = async (track: Track) => {
     if (track.file) return
 
@@ -983,6 +1073,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         isSyncing,
         isAutoPlay,
         isOfflineMode,
+        cueTrack,
+        isCuePlaying,
+        connectedServices,
+        toggleCue,
+        addCuePoint,
+        setTrim,
+        checkIntegrations,
         togglePlay,
         playNext,
         playPrev,
@@ -1017,6 +1114,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         downloadTrackForOffline,
         removeTrackFromOffline,
         toggleOfflineMode,
+        exportPlaylist,
       }}
     >
       {children}
