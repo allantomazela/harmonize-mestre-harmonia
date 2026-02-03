@@ -8,10 +8,8 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Switch } from '@/components/ui/switch'
 import {
   Database,
-  HardDrive,
   Download,
   Upload,
   Trash2,
@@ -19,6 +17,7 @@ import {
   UserPlus,
   Cloud,
   FileText,
+  Music,
 } from 'lucide-react'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import {
@@ -32,6 +31,7 @@ import { ProfileSettings } from '@/components/settings/profile-settings'
 import { AppearanceSettings } from '@/components/settings/appearance-settings'
 import { NotificationSettings } from '@/components/settings/notification-settings'
 import { CloudExplorer } from '@/components/settings/cloud-explorer'
+import { AudioSettings } from '@/components/settings/audio-settings'
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -156,8 +156,9 @@ export default function Settings() {
       <h1 className="text-3xl font-bold text-primary">Configurações</h1>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
           <TabsTrigger value="general">Geral</TabsTrigger>
+          <TabsTrigger value="audio">Áudio</TabsTrigger>
           <TabsTrigger value="lodge">Loja</TabsTrigger>
           <TabsTrigger value="local">Dados</TabsTrigger>
           <TabsTrigger value="cloud">Nuvem</TabsTrigger>
@@ -167,6 +168,10 @@ export default function Settings() {
           <ProfileSettings />
           <AppearanceSettings />
           <NotificationSettings />
+        </TabsContent>
+
+        <TabsContent value="audio" className="mt-6">
+          <AudioSettings />
         </TabsContent>
 
         <TabsContent value="lodge" className="space-y-6 mt-6">

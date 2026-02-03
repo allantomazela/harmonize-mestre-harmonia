@@ -5,6 +5,7 @@ import {
 import { TrackInfo } from '@/components/player/track-info'
 import { PlayerControls } from '@/components/player/player-controls'
 import { QueueList } from '@/components/player/queue-list'
+import { AudioEffectsPanel } from '@/components/player/audio-effects-panel'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -14,7 +15,6 @@ import {
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import {
-  Settings2,
   Activity,
   ChevronDown,
   Mic2,
@@ -44,9 +44,6 @@ export default function Player() {
     currentTime,
     duration,
     volume,
-    fadeInDuration,
-    fadeOutDuration,
-    fadeCurve,
     isLoading,
     isAutoPlay,
     acousticEnvironment,
@@ -57,9 +54,6 @@ export default function Player() {
     playPrev,
     seek,
     setVolume,
-    setFadeInDuration,
-    setFadeOutDuration,
-    setFadeCurve,
     setAcousticEnvironment,
     setTrackVolume,
     reorderQueue,
@@ -113,15 +107,18 @@ export default function Player() {
                 <SlidersVertical className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 border-border bg-card shadow-2xl p-4">
+            <PopoverContent className="w-96 border-border bg-card shadow-2xl p-4 mr-4">
               <div className="space-y-4">
                 <h4 className="font-medium text-sm flex items-center gap-2 text-primary uppercase tracking-wider border-b border-border pb-2">
                   <Activity className="w-4 h-4" /> Mixer Controls
                 </h4>
-                <div className="space-y-4">
+
+                <AudioEffectsPanel />
+
+                <div className="space-y-4 pt-4 border-t border-border">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase">
-                      Acoustic Environment
+                      Ambiente Acústico
                     </Label>
                     <Select
                       value={acousticEnvironment}
@@ -133,78 +130,23 @@ export default function Player() {
                         <SelectValue placeholder="Select Environment" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Studio (Dry)</SelectItem>
+                        <SelectItem value="none">Estúdio (Seco)</SelectItem>
                         <SelectItem value="temple">
-                          Inside the Temple
+                          Interior do Templo
                         </SelectItem>
-                        <SelectItem value="cathedral">
-                          Grand Cathedral
-                        </SelectItem>
+                        <SelectItem value="cathedral">Catedral</SelectItem>
                         <SelectItem value="small-room">
-                          Small Chamber
+                          Câmara de Reflexões
                         </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <Label className="text-xs text-primary font-bold uppercase">
-                      Transition Suite
-                    </Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <span className="text-[10px] text-muted-foreground uppercase">
-                          Fade In (s)
-                        </span>
-                        <Slider
-                          value={[fadeInDuration]}
-                          min={0}
-                          max={10}
-                          step={0.5}
-                          onValueChange={(v) => setFadeInDuration(v[0])}
-                          className="[&_.bg-primary]:bg-primary"
-                        />
-                        <span className="text-xs font-mono">
-                          {fadeInDuration}s
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-[10px] text-muted-foreground uppercase">
-                          Fade Out (s)
-                        </span>
-                        <Slider
-                          value={[fadeOutDuration]}
-                          min={0}
-                          max={10}
-                          step={0.5}
-                          onValueChange={(v) => setFadeOutDuration(v[0])}
-                          className="[&_.bg-primary]:bg-destructive"
-                        />
-                        <span className="text-xs font-mono">
-                          {fadeOutDuration}s
-                        </span>
-                      </div>
-                    </div>
-                    <Select
-                      value={fadeCurve}
-                      onValueChange={(v: any) => setFadeCurve(v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Curve Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="linear">Linear Fade</SelectItem>
-                        <SelectItem value="exponential">
-                          Exponential (Natural)
-                        </SelectItem>
-                        <SelectItem value="smooth">Smooth S-Curve</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+
                   {currentTrack && (
                     <div className="space-y-2 pt-2 border-t border-border">
                       <div className="flex justify-between">
                         <Label className="text-xs text-primary font-bold uppercase">
-                          Track Trim
+                          Volume da Faixa
                         </Label>
                         <span className="text-xs font-mono text-muted-foreground">
                           {Math.round(

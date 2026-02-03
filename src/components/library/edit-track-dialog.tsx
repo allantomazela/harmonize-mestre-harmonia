@@ -81,7 +81,7 @@ export function EditTrackDialog({
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="album" className="text-right">
-              Album
+              Álbum
             </Label>
             <Input
               id="album"

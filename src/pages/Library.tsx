@@ -364,9 +364,7 @@ export default function Library() {
                         else handlePlayContext(idx)
                       }}
                       onAddToQueue={() => addToQueue([track])}
-                      onEdit={
-                        track.isLocal ? () => setTrackToEdit(track) : undefined
-                      }
+                      onEdit={() => setTrackToEdit(track)}
                       onDelete={
                         track.isLocal ? () => handleDelete(track.id) : undefined
                       }
