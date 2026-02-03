@@ -6,8 +6,8 @@ export interface LocalTrack {
   composer: string
   album?: string
   duration: string
-  file?: Blob // Blob for offline playback
-  gdriveId?: string // Reference to Cloud File ID
+  file?: Blob
+  gdriveId?: string
   dropboxId?: string
   onedriveId?: string
   spotifyId?: string
@@ -24,10 +24,8 @@ export interface LocalTrack {
   year?: string
   occasion?: string
   tone?: string
-  offlineAvailable?: boolean // Explicit flag for offline availability
-  url?: string // External URL if not blob
-
-  // New DJ Features
+  offlineAvailable?: boolean
+  url?: string
   cues?: number[]
   trimStart?: number
   trimEnd?: number
@@ -51,21 +49,38 @@ export interface PlaylistItem {
   addedAt?: number
 }
 
+export interface Collaborator {
+  email: string
+  role: 'viewer' | 'editor'
+  status: 'pending' | 'accepted'
+}
+
 export interface Playlist {
   id: string
   title: string
   description?: string
   isSmart: boolean
   rules?: SmartPlaylistRule[]
-  items?: PlaylistItem[] // Ordered list of tracks
+  items?: PlaylistItem[]
   cover?: string
   createdAt: number
-  collaborators?: string[]
-  ritualTemplateId?: string // Association with Ritual Template
+  collaborators?: Collaborator[]
+  ritualTemplateId?: string
+}
+
+export interface EffectPreset {
+  id: string
+  name: string
+  settings: {
+    reverb: { mix: number; decay: number; preDelay: number }
+    delay: { mix: number; time: number; feedback: number }
+    distortion: { amount: number }
+    bassBoost: number
+  }
 }
 
 const DB_NAME = 'HarmonizeDB'
-const DB_VERSION = 7 // Incremented for schema updates
+const DB_VERSION = 8
 
 const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -84,6 +99,9 @@ const initDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains('playlists')) {
         db.createObjectStore('playlists', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('presets')) {
+        db.createObjectStore('presets', { keyPath: 'id' })
       }
     }
   })
@@ -127,12 +145,13 @@ export const clearAllTracks = async (): Promise<void> => {
   const db = await initDB()
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(
-      ['tracks', 'folders', 'playlists'],
+      ['tracks', 'folders', 'playlists', 'presets'],
       'readwrite',
     )
     transaction.objectStore('tracks').clear()
     transaction.objectStore('folders').clear()
     transaction.objectStore('playlists').clear()
+    transaction.objectStore('presets').clear()
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error)
   })
@@ -206,20 +225,55 @@ export const deletePlaylist = async (id: string): Promise<void> => {
   })
 }
 
+// Presets
+export const savePreset = async (preset: EffectPreset): Promise<void> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('presets', 'readwrite')
+    const store = transaction.objectStore('presets')
+    const request = store.put(preset)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export const getPresets = async (): Promise<EffectPreset[]> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('presets', 'readonly')
+    const store = transaction.objectStore('presets')
+    const request = store.getAll()
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export const deletePreset = async (id: string): Promise<void> => {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('presets', 'readwrite')
+    const store = transaction.objectStore('presets')
+    const request = store.delete(id)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 // Backup Utilities
 export const exportLibraryData = async (): Promise<string> => {
   const tracks = await getAllTracks()
   const folders = await getFolders()
   const playlists = await getPlaylists()
+  const presets = await getPresets()
 
-  // Exclude actual file blobs from backup to keep size manageable
   const tracksMetadata = tracks.map(({ file, ...meta }) => meta)
 
   return JSON.stringify({
-    version: 1,
+    version: 2,
     createdAt: Date.now(),
     folders,
     playlists,
+    presets,
     tracks: tracksMetadata,
   })
 }
@@ -268,6 +322,12 @@ export const importLibraryData = async (jsonString: string): Promise<void> => {
     if (data.playlists) {
       for (const playlist of data.playlists) {
         await savePlaylist(playlist)
+      }
+    }
+
+    if (data.presets) {
+      for (const preset of data.presets) {
+        await savePreset(preset)
       }
     }
 

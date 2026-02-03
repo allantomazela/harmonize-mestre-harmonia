@@ -10,9 +10,17 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Copy, Check, Users, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 
 interface SharePlaylistDialogProps {
   isOpen: boolean
@@ -26,6 +34,7 @@ export function SharePlaylistDialog({
   playlistTitle,
 }: SharePlaylistDialogProps) {
   const [email, setEmail] = useState('')
+  const [role, setRole] = useState<'viewer' | 'editor'>('viewer')
   const [inviteSent, setInviteSent] = useState(false)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
@@ -48,7 +57,7 @@ export function SharePlaylistDialog({
     setEmail('')
     toast({
       title: 'Convite Enviado',
-      description: `Um convite de colaboração foi enviado para ${email}.`,
+      description: `Um convite de ${role === 'editor' ? 'Edição' : 'Visualização'} foi enviado para ${email}.`,
     })
   }
 
@@ -104,9 +113,19 @@ export function SharePlaylistDialog({
                 placeholder="irmao@loja.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
               />
-              <Button onClick={handleInvite} disabled={!email}>
-                <Mail className="w-4 h-4 mr-2" /> Convidar
+              <Select value={role} onValueChange={(v: any) => setRole(v)}>
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleInvite} disabled={!email} size="icon">
+                <Mail className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -125,6 +144,7 @@ export function SharePlaylistDialog({
                   <p className="text-sm font-medium">Você</p>
                   <p className="text-xs text-muted-foreground">Proprietário</p>
                 </div>
+                <Badge>Owner</Badge>
               </div>
               {inviteSent && (
                 <div className="flex items-center gap-3 animate-fade-in">
@@ -135,6 +155,9 @@ export function SharePlaylistDialog({
                     <p className="text-sm font-medium">Convidado</p>
                     <p className="text-xs text-muted-foreground">Pendente...</p>
                   </div>
+                  <Badge variant="outline">
+                    {role === 'editor' ? 'Editor' : 'Viewer'}
+                  </Badge>
                 </div>
               )}
             </div>

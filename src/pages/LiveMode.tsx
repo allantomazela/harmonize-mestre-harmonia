@@ -9,10 +9,18 @@ import {
   X,
   Maximize2,
   Music,
+  Activity,
+  MonitorPlay,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { AudioEffectsPanel } from '@/components/player/audio-effects-panel'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 export default function LiveMode() {
   const navigate = useNavigate()
@@ -27,6 +35,8 @@ export default function LiveMode() {
     seek,
     queue,
     currentIndex,
+    volume,
+    setVolume,
   } = useAudioPlayer()
 
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -75,7 +85,33 @@ export default function LiveMode() {
             Live On Air
           </span>
         </div>
+
         <div className="flex gap-4">
+          <Link to="/visualizer">
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-2 border-primary/50 text-primary hover:bg-primary/20 rounded-full uppercase font-bold tracking-wider"
+            >
+              <MonitorPlay className="w-5 h-5 mr-2" /> VJ Mode
+            </Button>
+          </Link>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-2 border-white/20 text-white hover:bg-white/10 rounded-full"
+              >
+                <Activity className="w-5 h-5 mr-2" /> FX
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] border-border bg-black/90 p-0 mr-4">
+              <AudioEffectsPanel />
+            </PopoverContent>
+          </Popover>
+
           <Button
             variant="outline"
             size="lg"
@@ -107,30 +143,6 @@ export default function LiveMode() {
               <p className="text-3xl md:text-6xl text-primary font-bold font-serif opacity-90 drop-shadow-md">
                 {currentTrack.composer}
               </p>
-              <div className="flex justify-center flex-wrap gap-4 mt-8">
-                {currentTrack.ritual && (
-                  <span className="px-8 py-3 bg-card/60 backdrop-blur text-white rounded-full text-2xl font-bold border-2 border-white/10 uppercase tracking-widest shadow-lg">
-                    {currentTrack.ritual}
-                  </span>
-                )}
-                {currentTrack.degree && (
-                  <span className="px-8 py-3 bg-card/60 backdrop-blur text-white rounded-full text-2xl font-bold border-2 border-white/10 uppercase tracking-widest shadow-lg">
-                    {currentTrack.degree}
-                  </span>
-                )}
-                <div className="flex gap-4">
-                  {currentTrack.bpm && (
-                    <span className="px-8 py-3 bg-primary/20 text-primary rounded-full text-2xl font-bold border-2 border-primary/30 uppercase font-mono tracking-widest">
-                      {currentTrack.bpm} BPM
-                    </span>
-                  )}
-                  {currentTrack.tone && (
-                    <span className="px-8 py-3 bg-primary/20 text-primary rounded-full text-2xl font-bold border-2 border-primary/30 uppercase font-mono tracking-widest">
-                      KEY: {currentTrack.tone}
-                    </span>
-                  )}
-                </div>
-              </div>
             </>
           ) : (
             <div className="flex flex-col items-center gap-6 opacity-30">
@@ -149,7 +161,6 @@ export default function LiveMode() {
               className="absolute top-0 left-0 h-full bg-primary shadow-[0_0_30px_hsl(var(--primary))] transition-all duration-100 ease-linear"
               style={{ width: `${(currentTime / duration) * 100}%` }}
             />
-            {/* Markers could go here */}
           </div>
           <div className="flex justify-between text-5xl md:text-6xl font-mono font-bold text-white tracking-tighter">
             <span className="text-glow">{formatTime(currentTime)}</span>
@@ -245,6 +256,19 @@ export default function LiveMode() {
                 -- End of Playlist --
               </p>
             )}
+          </div>
+
+          <div className="flex items-center gap-4 bg-black/50 p-4 rounded-xl border border-white/10">
+            <span className="text-sm font-bold uppercase text-white/60">
+              Master Vol
+            </span>
+            <Slider
+              value={[volume]}
+              max={1}
+              step={0.01}
+              onValueChange={(v) => setVolume(v[0])}
+              className="w-48"
+            />
           </div>
         </div>
       </div>
