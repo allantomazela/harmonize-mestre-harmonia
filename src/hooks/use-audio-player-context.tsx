@@ -373,6 +373,41 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary()
   }, [refreshLibrary])
 
+  // Helper for Distortion
+  function makeDistortionCurve(amount: number) {
+    if (amount === 0) return null
+    const k = amount * 5 // Sensitivity
+    const n_samples = 44100
+    const curve = new Float32Array(n_samples)
+    const deg = Math.PI / 180
+    for (let i = 0; i < n_samples; ++i) {
+      const x = (i * 2) / n_samples - 1
+      curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x))
+    }
+    return curve
+  }
+
+  // Helper for Reverb Impulse
+  function impulseResponse(
+    duration: number,
+    decay: number,
+    reverse: boolean,
+    ctx: AudioContext,
+  ) {
+    const sampleRate = ctx.sampleRate
+    const length = sampleRate * duration
+    const impulse = ctx.createBuffer(2, length, sampleRate)
+    const impulseL = impulse.getChannelData(0)
+    const impulseR = impulse.getChannelData(1)
+
+    for (let i = 0; i < length; i++) {
+      const n = reverse ? length - i : i
+      impulseL[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay)
+      impulseR[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay)
+    }
+    return impulse
+  }
+
   // Setup Web Audio Graph
   useEffect(() => {
     if (!audioContextRef.current && audioRef.current) {
@@ -532,10 +567,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
           false,
           ctx,
         )
-      } else if (effects.reverb.mix > 0) {
-        // In real app, check if decay changed to regenerate. For now, we assume simple mix control.
-        // If we want dynamic decay update:
-        // reverbConvolverRef.current.buffer = impulseResponse(effects.reverb.decay, effects.reverb.decay, false, ctx)
       }
       reverbWetGainRef.current.gain.value = effects.reverb.mix
       reverbDryGainRef.current.gain.value = 1 - effects.reverb.mix
@@ -549,41 +580,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         : 0
     }
   }, [effects, bassBoostLevel, isNormalizationEnabled])
-
-  // Helper for Distortion
-  function makeDistortionCurve(amount: number) {
-    if (amount === 0) return null
-    const k = amount * 5 // Sensitivity
-    const n_samples = 44100
-    const curve = new Float32Array(n_samples)
-    const deg = Math.PI / 180
-    for (let i = 0; i < n_samples; ++i) {
-      const x = (i * 2) / n_samples - 1
-      curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x))
-    }
-    return curve
-  }
-
-  // Helper for Reverb Impulse
-  function impulseResponse(
-    duration: number,
-    decay: number,
-    reverse: boolean,
-    ctx: AudioContext,
-  ) {
-    const sampleRate = ctx.sampleRate
-    const length = sampleRate * duration
-    const impulse = ctx.createBuffer(2, length, sampleRate)
-    const impulseL = impulse.getChannelData(0)
-    const impulseR = impulse.getChannelData(1)
-
-    for (let i = 0; i < length; i++) {
-      const n = reverse ? length - i : i
-      impulseL[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay)
-      impulseR[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay)
-    }
-    return impulse
-  }
 
   const setEffectParam = (
     effect: keyof EffectsState,
@@ -646,6 +642,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   // Fade Logic & Helpers
   const currentTrack = queue[currentIndex]
+
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
     if (curve === 'exponential') return t * t
     if (curve === 'smooth') return t * t * (3 - 2 * t)
@@ -834,7 +831,75 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  // Audio Event Listeners
+  // Initialization of Control Methods (Moved BEFORE usage in useEffect)
+  const playNext = useCallback(() => {
+    setQueue((q) => {
+      setCurrentIndex((prev) => {
+        if (prev < q.length - 1) {
+          const next = prev + 1
+          loadAndPlay(q[next])
+          return next
+        }
+        setIsPlaying(false)
+        return prev
+      })
+      return q
+    })
+  }, [loadAndPlay])
+
+  const playPrev = useCallback(() => {
+    setQueue((q) => {
+      setCurrentIndex((prev) => {
+        if (prev > 0) {
+          const next = prev - 1
+          loadAndPlay(q[next])
+          return next
+        }
+        return prev
+      })
+      return q
+    })
+  }, [loadAndPlay])
+
+  const togglePlay = useCallback(() => {
+    if (!audioRef.current) return
+    if (isPlaying) {
+      if (transitionType === 'instant') safePause()
+      else performFade(0, crossfadeDuration, fadeCurve, () => safePause())
+    } else {
+      if (!audioRef.current.src && currentTrack) loadAndPlay(currentTrack)
+      else {
+        if (transitionType === 'instant') {
+          audioRef.current.volume = getEffectiveVolume()
+          safePlay()
+        } else {
+          audioRef.current.volume = 0
+          safePlay().then(() =>
+            performFade(volume, crossfadeDuration, fadeCurve),
+          )
+        }
+      }
+    }
+  }, [
+    isPlaying,
+    currentTrack,
+    loadAndPlay,
+    performFade,
+    volume,
+    crossfadeDuration,
+    transitionType,
+    fadeCurve,
+    safePlay,
+    safePause,
+    getEffectiveVolume,
+  ])
+
+  const triggerFadeOut = useCallback(() => {
+    if (isPlaying && audioRef.current)
+      performFade(0, crossfadeDuration, fadeCurve, () => safePause())
+  }, [isPlaying, crossfadeDuration, fadeCurve, performFade, safePause])
+
+  // Audio Event Listeners (NOW Safe to use playNext)
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
@@ -872,8 +937,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       console.warn('Audio Playback Error:', err)
 
       // Retry mechanism for CORS issues
-      // If we are using anonymous crossOrigin and loading failed, it might be a CORS issue.
-      // We try once more without crossOrigin. This will disable WebAudio visualization but allow playback.
       if (target.crossOrigin === 'anonymous' && retryCountRef.current === 0) {
         console.warn('Attempting fallback: disabling CORS for playback.')
         retryCountRef.current += 1
@@ -927,68 +990,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current.volume = getEffectiveVolume()
   }, [volume, trackVolumes, currentTrack, getEffectiveVolume, transitionType])
 
-  const togglePlay = useCallback(() => {
-    if (!audioRef.current) return
-    if (isPlaying) {
-      if (transitionType === 'instant') safePause()
-      else performFade(0, crossfadeDuration, fadeCurve, () => safePause())
-    } else {
-      if (!audioRef.current.src && currentTrack) loadAndPlay(currentTrack)
-      else {
-        if (transitionType === 'instant') {
-          audioRef.current.volume = getEffectiveVolume()
-          safePlay()
-        } else {
-          audioRef.current.volume = 0
-          safePlay().then(() =>
-            performFade(volume, crossfadeDuration, fadeCurve),
-          )
-        }
-      }
-    }
-  }, [
-    isPlaying,
-    currentTrack,
-    loadAndPlay,
-    performFade,
-    volume,
-    crossfadeDuration,
-    transitionType,
-    fadeCurve,
-    safePlay,
-    safePause,
-    getEffectiveVolume,
-  ])
-
-  const playNext = useCallback(() => {
-    setQueue((q) => {
-      setCurrentIndex((prev) => {
-        if (prev < q.length - 1) {
-          const next = prev + 1
-          loadAndPlay(q[next])
-          return next
-        }
-        setIsPlaying(false)
-        return prev
-      })
-      return q
-    })
-  }, [loadAndPlay])
-
-  const playPrev = useCallback(() => {
-    setQueue((q) => {
-      setCurrentIndex((prev) => {
-        if (prev > 0) {
-          const next = prev - 1
-          loadAndPlay(q[next])
-          return next
-        }
-        return prev
-      })
-      return q
-    })
-  }, [loadAndPlay])
-
   const seek = useCallback((time: number) => {
     if (audioRef.current && Number.isFinite(time)) {
       audioRef.current.currentTime = time
@@ -1004,10 +1005,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggleAutoPlay = useCallback(() => setIsAutoPlay((prev) => !prev), [])
-  const triggerFadeOut = useCallback(() => {
-    if (isPlaying && audioRef.current)
-      performFade(0, crossfadeDuration, fadeCurve, () => safePause())
-  }, [isPlaying, crossfadeDuration, fadeCurve, performFade, safePause])
 
   const reorderQueue = useCallback(
     (from: number, to: number) => {
