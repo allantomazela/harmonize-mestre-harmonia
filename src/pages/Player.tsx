@@ -22,6 +22,7 @@ import {
   Waves,
   SlidersVertical,
   Volume2,
+  AlertCircle,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function Player() {
   const navigate = useNavigate()
@@ -60,6 +62,7 @@ export default function Player() {
     removeFromQueue,
     skipToIndex,
     triggerFadeOut,
+    isCorsRestricted,
   } = useAudioPlayer()
 
   return (
@@ -77,7 +80,13 @@ export default function Player() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {acousticEnvironment !== 'none' && (
+          {isCorsRestricted && (
+            <Badge variant="destructive" className="gap-1 animate-pulse">
+              <AlertCircle className="w-3 h-3" /> Modo Limitado (CORS)
+            </Badge>
+          )}
+
+          {acousticEnvironment !== 'none' && !isCorsRestricted && (
             <Badge
               variant="outline"
               className="border-primary/50 text-primary animate-pulse bg-primary/10"
@@ -103,6 +112,7 @@ export default function Player() {
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-primary hover:bg-transparent"
+                disabled={isCorsRestricted}
               >
                 <SlidersVertical className="w-5 h-5" />
               </Button>
@@ -198,11 +208,26 @@ export default function Player() {
         </div>
       </div>
 
+      {isCorsRestricted && (
+        <Alert
+          variant="default"
+          className="border-yellow-500/50 bg-yellow-500/10 text-yellow-500 mb-2"
+        >
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Modo de Compatibilidade</AlertTitle>
+          <AlertDescription>
+            Este arquivo de áudio possui restrições de origem (CORS).
+            Visualizadores e Efeitos de Áudio foram desativados, mas a
+            reprodução continua normal.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex-1 flex flex-col lg:flex-row gap-8 lg:gap-12 items-center justify-center relative z-10 w-full min-h-0">
         <div className="flex-1 w-full max-w-3xl flex flex-col justify-center gap-8 lg:gap-10 h-full overflow-y-auto lg:overflow-visible py-4 scrollbar-none">
           <div className="flex-1 flex items-center justify-center min-h-[300px] relative">
             <TrackInfo track={currentTrack} isLoading={isLoading} />
-            {acousticEnvironment === 'temple' && (
+            {acousticEnvironment === 'temple' && !isCorsRestricted && (
               <div className="absolute inset-0 pointer-events-none rounded-full border-[20px] border-primary/5 blur-3xl animate-pulse-slow" />
             )}
           </div>

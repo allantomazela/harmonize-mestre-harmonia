@@ -19,11 +19,11 @@ import {
   Zap,
   Mic2,
   Save,
-  Trash2,
-  Speaker,
   Radio,
+  AlertTriangle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 export function AudioEffectsPanel() {
   const {
@@ -36,7 +36,7 @@ export function AudioEffectsPanel() {
     presets,
     loadPreset,
     saveCurrentPreset,
-    deleteEffectPreset,
+    isCorsRestricted,
   } = useAudioPlayer()
 
   const [newPresetName, setNewPresetName] = useState('')
@@ -56,13 +56,30 @@ export function AudioEffectsPanel() {
   }
 
   return (
-    <Card className="border-border bg-card/95 backdrop-blur shadow-xl max-h-[500px] overflow-y-auto">
+    <Card className="border-border bg-card/95 backdrop-blur shadow-xl max-h-[500px] overflow-y-auto relative overflow-hidden">
+      {isCorsRestricted && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center text-center p-6 space-y-4">
+          <div className="bg-yellow-500/10 p-4 rounded-full">
+            <AlertTriangle className="w-8 h-8 text-yellow-500" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-bold text-foreground">Efeitos Desativados</h3>
+            <p className="text-sm text-muted-foreground">
+              O áudio atual está sendo executado em modo de compatibilidade
+              (CORS). O processamento de sinal digital não pode ser aplicado.
+            </p>
+          </div>
+        </div>
+      )}
+
       <CardHeader className="pb-3 border-b border-border">
         <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-primary">
           <Activity className="w-4 h-4" /> FX Rack
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 pt-4">
+      <CardContent
+        className={cn('space-y-6 pt-4', isCorsRestricted && 'opacity-20')}
+      >
         {/* Presets */}
         <div className="space-y-3 bg-secondary/10 p-3 rounded-md">
           <Label className="text-xs uppercase font-bold text-muted-foreground">
@@ -70,6 +87,7 @@ export function AudioEffectsPanel() {
           </Label>
           <div className="flex gap-2">
             <Select
+              disabled={isCorsRestricted}
               onValueChange={(id) => {
                 const p = presets.find((ps) => ps.id === id)
                 if (p) loadPreset(p)
@@ -93,12 +111,14 @@ export function AudioEffectsPanel() {
               onChange={(e) => setNewPresetName(e.target.value)}
               placeholder="New Preset Name"
               className="h-8 text-xs"
+              disabled={isCorsRestricted}
             />
             <Button
               size="sm"
               variant="secondary"
               className="h-8 w-8 p-0"
               onClick={handleSave}
+              disabled={isCorsRestricted}
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -117,6 +137,7 @@ export function AudioEffectsPanel() {
             <Switch
               checked={isNormalizationEnabled}
               onCheckedChange={setIsNormalizationEnabled}
+              disabled={isCorsRestricted}
             />
           </div>
 
@@ -135,6 +156,7 @@ export function AudioEffectsPanel() {
               max={100}
               step={1}
               onValueChange={(v) => setBassBoostLevel(v[0])}
+              disabled={isCorsRestricted}
             />
           </div>
         </div>
@@ -155,6 +177,7 @@ export function AudioEffectsPanel() {
                   onValueChange={(v) =>
                     setEffectParam('reverb', 'mix', v[0] / 100)
                   }
+                  disabled={isCorsRestricted}
                 />
               </div>
               <div className="space-y-1">
@@ -164,6 +187,7 @@ export function AudioEffectsPanel() {
                   max={10}
                   step={0.1}
                   onValueChange={(v) => setEffectParam('reverb', 'decay', v[0])}
+                  disabled={isCorsRestricted}
                 />
               </div>
             </div>
@@ -183,6 +207,7 @@ export function AudioEffectsPanel() {
                   onValueChange={(v) =>
                     setEffectParam('delay', 'mix', v[0] / 100)
                   }
+                  disabled={isCorsRestricted}
                 />
               </div>
               <div className="space-y-1">
@@ -194,6 +219,7 @@ export function AudioEffectsPanel() {
                   max={2}
                   step={0.1}
                   onValueChange={(v) => setEffectParam('delay', 'time', v[0])}
+                  disabled={isCorsRestricted}
                 />
               </div>
               <div className="space-y-1 col-span-2">
@@ -206,6 +232,7 @@ export function AudioEffectsPanel() {
                   onValueChange={(v) =>
                     setEffectParam('delay', 'feedback', v[0] / 100)
                   }
+                  disabled={isCorsRestricted}
                 />
               </div>
             </div>
@@ -224,6 +251,7 @@ export function AudioEffectsPanel() {
                 onValueChange={(v) =>
                   setEffectParam('distortion', 'amount', v[0])
                 }
+                disabled={isCorsRestricted}
               />
             </div>
           </div>

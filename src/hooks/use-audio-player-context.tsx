@@ -108,6 +108,7 @@ interface AudioPlayerContextType {
   isSyncing: boolean
   isAutoPlay: boolean
   isOfflineMode: boolean
+  isCorsRestricted: boolean
 
   // Cueing
   cueTrack: Track | undefined
@@ -218,6 +219,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+  const [isCorsRestricted, setIsCorsRestricted] = useState(false)
 
   // Cue State
   const [cueTrack, setCueTrack] = useState<Track | undefined>(undefined)
@@ -265,6 +267,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const retryCountRef = useRef<number>(0)
 
   // Persistence Effects
   useEffect(
@@ -641,8 +644,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  // ... (Keep existing Play/Pause/Fade/Load logic from previous implementation)
-
   // Fade Logic & Helpers
   const currentTrack = queue[currentIndex]
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
@@ -743,6 +744,12 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       const startNewTrack = async () => {
         if (!audioRef.current) return
+
+        // Reset CORS state and retry count for new track
+        retryCountRef.current = 0
+        setIsCorsRestricted(false)
+        audioRef.current.crossOrigin = 'anonymous'
+
         let src = track.url
 
         if (track.file) {
@@ -831,6 +838,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
+      // Default to anonymous to enable WebAudio features, handled by retry logic if fails
       audioRef.current.crossOrigin = 'anonymous'
       audioRef.current.preload = 'auto'
     }
@@ -857,12 +865,47 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const handleWaiting = () => setIsLoading(true)
     const handleCanPlay = () => setIsLoading(false)
 
+    // Robust Error Handling for CORS
+    const handleError = (e: Event) => {
+      const target = e.target as HTMLAudioElement
+      const err = target.error
+      console.warn('Audio Playback Error:', err)
+
+      // Retry mechanism for CORS issues
+      // If we are using anonymous crossOrigin and loading failed, it might be a CORS issue.
+      // We try once more without crossOrigin. This will disable WebAudio visualization but allow playback.
+      if (target.crossOrigin === 'anonymous' && retryCountRef.current === 0) {
+        console.warn('Attempting fallback: disabling CORS for playback.')
+        retryCountRef.current += 1
+        target.removeAttribute('crossorigin')
+        target.load()
+        safePlay().catch(console.error)
+        setIsCorsRestricted(true)
+        return
+      }
+
+      setIsLoading(false)
+      setIsPlaying(false)
+
+      let errorMsg = 'Não foi possível reproduzir este áudio.'
+      if (err?.code === 2) errorMsg = 'Erro de rede. Verifique sua conexão.'
+      if (err?.code === 4)
+        errorMsg = 'Formato não suportado ou arquivo não encontrado.'
+
+      toast({
+        title: 'Erro ao carregar o áudio',
+        description: `${errorMsg} Verifique a origem do arquivo.`,
+        variant: 'destructive',
+      })
+    }
+
     audio.addEventListener('timeupdate', updateTime)
     audio.addEventListener('durationchange', updateDuration)
     audio.addEventListener('loadedmetadata', updateDuration)
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('waiting', handleWaiting)
     audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('error', handleError)
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
@@ -871,8 +914,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('waiting', handleWaiting)
       audio.removeEventListener('canplay', handleCanPlay)
+      audio.removeEventListener('error', handleError)
     }
-  }, [isAutoPlay, currentTrack])
+  }, [isAutoPlay, currentTrack, playNext, safePlay])
 
   useEffect(() => {
     if (
@@ -916,7 +960,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     getEffectiveVolume,
   ])
 
-  // ... (keep rest of methods: playNext, playPrev, seek, etc. mapped to new structure)
   const playNext = useCallback(() => {
     setQueue((q) => {
       setCurrentIndex((prev) => {
@@ -1212,6 +1255,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         isSyncing,
         isAutoPlay,
         isOfflineMode,
+        isCorsRestricted,
         cueTrack,
         isCuePlaying,
         connectedServices,

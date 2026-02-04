@@ -18,7 +18,7 @@ export function VisualizerCanvas({
   height,
 }: VisualizerCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { analyserRef, isPlaying } = useAudioPlayer()
+  const { analyserRef, isCorsRestricted } = useAudioPlayer()
   const animationRef = useRef<number>(0)
 
   useEffect(() => {
@@ -40,6 +40,20 @@ export function VisualizerCanvas({
     if (!ctx) return
 
     const render = () => {
+      // If CORS restricted, render a static "No Signal" line and stop
+      if (isCorsRestricted) {
+        ctx.fillStyle = '#000'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.strokeStyle = '#333'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(0, canvas.height / 2)
+        ctx.lineTo(canvas.width, canvas.height / 2)
+        ctx.stroke()
+        return
+      }
+
       if (!analyserRef.current) {
         // If no analyser, allow loop to clear canvas or show idle state
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -133,7 +147,7 @@ export function VisualizerCanvas({
       cancelAnimationFrame(animationRef.current)
       window.removeEventListener('resize', resizeCanvas)
     }
-  }, [mode, analyserRef, width, height])
+  }, [mode, analyserRef, width, height, isCorsRestricted])
 
   return (
     <canvas
