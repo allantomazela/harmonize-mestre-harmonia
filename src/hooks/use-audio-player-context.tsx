@@ -121,6 +121,9 @@ interface AudioPlayerContextType {
   connectedServices: { spotify: boolean; soundcloud: boolean }
   checkIntegrations: () => void
 
+  // Download Progress
+  downloadProgress: Record<string, number> // trackId -> percentage (0-100)
+
   // Methods
   togglePlay: () => void
   playNext: () => void
@@ -220,6 +223,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [isCorsRestricted, setIsCorsRestricted] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState<
+    Record<string, number>
+  >({})
 
   // Cue State
   const [cueTrack, setCueTrack] = useState<Track | undefined>(undefined)
@@ -240,7 +246,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   // Audio Graph Refs
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const cueAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
   const gainNodeRef = useRef<GainNode | null>(null)
@@ -1122,25 +1127,68 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   )
 
   const downloadTrackForOffline = async (track: Track) => {
-    if (track.file) return
+    if (track.file) {
+      toast({
+        title: 'Já disponível offline',
+        description: `"${track.title}" já está salvo localmente.`,
+      })
+      return
+    }
+
+    setDownloadProgress((prev) => ({ ...prev, [track.id]: 0 }))
+
     toast({
       title: 'Baixando...',
       description: `Tornando "${track.title}" disponível offline.`,
     })
+
     try {
       let blob: Blob
+
+      // Start progress simulation since we don't have true stream progress from simplified fetch wrappers
+      const progressInterval = setInterval(() => {
+        setDownloadProgress((prev) => {
+          const current = prev[track.id] || 0
+          if (current >= 90) return prev
+          return { ...prev, [track.id]: current + 10 }
+        })
+      }, 200)
+
       if (track.gdriveId && track.cloudProvider === 'google')
         blob = await fetchDriveFileBlob(track.gdriveId)
       else if (track.url) {
         const res = await fetch(track.url)
         blob = await res.blob()
-      } else throw new Error('No source available')
+      } else {
+        clearInterval(progressInterval)
+        throw new Error('No source available')
+      }
+
+      clearInterval(progressInterval)
+      setDownloadProgress((prev) => ({ ...prev, [track.id]: 100 }))
+
       await updateTrack({ ...track, file: blob, offlineAvailable: true })
+
       toast({
         title: 'Download Concluído',
         description: 'Faixa disponível offline.',
       })
+
+      // Clear progress after a moment
+      setTimeout(() => {
+        setDownloadProgress((prev) => {
+          const next = { ...prev }
+          delete next[track.id]
+          return next
+        })
+      }, 1000)
     } catch (e) {
+      setDownloadProgress((prev) => {
+        const next = { ...prev }
+        delete next[track.id]
+        return next
+      })
+
       toast({
         variant: 'destructive',
         title: 'Falha no Download',
@@ -1256,6 +1304,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         cueTrack,
         isCuePlaying,
         connectedServices,
+        downloadProgress,
         toggleCue,
         addCuePoint,
         setTrim,

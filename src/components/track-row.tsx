@@ -10,8 +10,11 @@ import {
   Folder,
   BarChart2,
   CloudDownload,
-  CloudOff,
+  Cloud,
+  CheckCircle,
   GripVertical,
+  Loader2,
+  WifiOff,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
@@ -66,14 +70,62 @@ export function TrackRow({
   onDragOver,
   onDrop,
 }: TrackRowProps) {
-  const { downloadTrackForOffline, removeTrackFromOffline } = useAudioPlayer()
+  const {
+    downloadTrackForOffline,
+    removeTrackFromOffline,
+    downloadProgress,
+    isOfflineMode,
+  } = useAudioPlayer()
+
+  const downloadPercentage = downloadProgress[track.id]
+  const isDownloading = downloadPercentage !== undefined
+
+  // Determine offline status icon
+  const getOfflineStatus = () => {
+    if (isDownloading) {
+      return (
+        <div className="flex flex-col items-center justify-center w-8 h-8">
+          <Loader2 className="w-4 h-4 text-primary animate-spin" />
+        </div>
+      )
+    }
+    if (track.offlineAvailable) {
+      return (
+        <div
+          title="Disponível Offline"
+          className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20"
+        >
+          <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+        </div>
+      )
+    }
+    // Only show download cloud if online and not downloaded
+    if (!isOfflineMode) {
+      return (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-transparent"
+          onClick={(e) => {
+            e.stopPropagation()
+            downloadTrackForOffline(track)
+          }}
+          title="Baixar para Offline"
+        >
+          <CloudDownload className="w-4 h-4" />
+        </Button>
+      )
+    }
+    return null
+  }
 
   return (
     <div
       className={cn(
-        'group flex items-center gap-4 p-2 rounded-md hover:bg-secondary/30 transition-colors border border-transparent',
-        isSelected && 'bg-secondary/40 border-primary/10',
-        isCurrent && 'bg-primary/5',
+        'group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all border border-transparent',
+        isSelected && 'bg-primary/5 border-primary/20',
+        isCurrent &&
+          'bg-gradient-to-r from-primary/10 to-transparent border-primary/20',
       )}
       draggable={draggable}
       onDragStart={onDragStart}
@@ -96,11 +148,11 @@ export function TrackRow({
             <span
               className={cn(
                 'text-sm font-medium text-muted-foreground group-hover:hidden',
-                isCurrent && 'text-primary animate-pulse',
+                isCurrent && 'text-primary font-bold',
               )}
             >
               {isCurrent && isPlaying ? (
-                <BarChart2 className="w-4 h-4" />
+                <BarChart2 className="w-4 h-4 animate-pulse" />
               ) : (
                 (index ?? 0) + 1
               )}
@@ -109,8 +161,8 @@ export function TrackRow({
               variant="ghost"
               size="icon"
               className={cn(
-                'absolute hidden group-hover:flex h-8 w-8',
-                isCurrent && 'flex text-primary',
+                'absolute hidden group-hover:flex h-8 w-8 rounded-full hover:bg-primary hover:text-black transition-colors',
+                isCurrent && 'flex text-primary hover:text-black',
               )}
               onClick={(e) => {
                 e.stopPropagation()
@@ -120,7 +172,7 @@ export function TrackRow({
               {isCurrent && isPlaying ? (
                 <Pause className="w-4 h-4 fill-current" />
               ) : (
-                <Play className="w-4 h-4 fill-current" />
+                <Play className="w-4 h-4 fill-current ml-0.5" />
               )}
             </Button>
           </div>
@@ -128,7 +180,7 @@ export function TrackRow({
       </div>
 
       {/* Cover Art */}
-      <div className="h-10 w-10 md:h-12 md:w-12 rounded bg-secondary flex-shrink-0 overflow-hidden relative border border-border">
+      <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-secondary flex-shrink-0 overflow-hidden relative border border-white/10 shadow-sm">
         {track.cover ? (
           <img
             src={track.cover}
@@ -136,8 +188,22 @@ export function TrackRow({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-5 h-5 text-muted-foreground/50" />
+          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+            <Music className="w-5 h-5 text-zinc-700" />
+          </div>
+        )}
+        {/* Progress Overlay */}
+        {isDownloading && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <span className="text-[9px] font-bold text-primary">
+              {downloadPercentage}%
+            </span>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${downloadPercentage}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -147,46 +213,32 @@ export function TrackRow({
         <div className="flex items-center gap-2">
           <h4
             className={cn(
-              'font-medium text-sm truncate leading-tight',
-              isCurrent ? 'text-primary' : 'text-foreground',
+              'font-semibold text-sm truncate leading-tight',
+              isCurrent ? 'text-primary' : 'text-zinc-100',
             )}
           >
             {track.title}
           </h4>
-          {track.offlineAvailable && (
-            <span className="text-green-500" title="Disponível Offline">
-              <CloudDownload className="w-3 h-3" />
-            </span>
-          )}
         </div>
-        <p className="text-xs text-muted-foreground truncate group-hover:text-foreground/80 transition-colors">
+        <p className="text-xs text-muted-foreground truncate group-hover:text-zinc-400 transition-colors">
           {track.composer}
         </p>
       </div>
 
       {/* Album (Desktop) */}
       {showAlbum && (
-        <div className="hidden md:flex flex-1 min-w-0 text-sm text-muted-foreground truncate">
+        <div className="hidden md:flex flex-1 min-w-0 text-sm text-zinc-500 truncate">
           {track.album || track.genre || '-'}
         </div>
       )}
 
-      {/* Metadata Tags */}
-      <div className="hidden lg:flex gap-2 items-center">
-        {track.bpm && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
-            {track.bpm} BPM
-          </span>
-        )}
-        {track.tone && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
-            {track.tone}
-          </span>
-        )}
+      {/* Offline Status */}
+      <div className="flex items-center justify-center w-10">
+        {getOfflineStatus()}
       </div>
 
       {/* Duration */}
-      <div className="text-sm text-muted-foreground w-12 text-right hidden sm:block">
+      <div className="text-sm font-medium text-zinc-500 w-12 text-right hidden sm:block">
         {track.duration}
       </div>
 
@@ -197,7 +249,7 @@ export function TrackRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-8 w-8 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <MoreHorizontal className="w-4 h-4" />
             </Button>
@@ -210,15 +262,17 @@ export function TrackRow({
               <ListPlus className="w-4 h-4 mr-2" /> Adicionar à Fila
             </DropdownMenuItem>
 
+            <DropdownMenuSeparator />
+
             {track.offlineAvailable ? (
               <DropdownMenuItem onClick={() => removeTrackFromOffline(track)}>
-                <CloudOff className="w-4 h-4 mr-2 text-destructive" /> Remover
-                do Offline
+                <WifiOff className="w-4 h-4 mr-2 text-destructive" /> Remover do
+                Offline
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem onClick={() => downloadTrackForOffline(track)}>
-                <CloudDownload className="w-4 h-4 mr-2 text-primary" />{' '}
-                Disponibilizar Offline
+                <CloudDownload className="w-4 h-4 mr-2 text-primary" /> Baixar
+                para Offline
               </DropdownMenuItem>
             )}
 

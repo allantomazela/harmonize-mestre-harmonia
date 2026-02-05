@@ -28,6 +28,7 @@ import { CreatePlaylistDialog } from '@/components/library/create-playlist-dialo
 import { ImportStreamDialog } from '@/components/library/import-stream-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
+import { Link } from 'react-router-dom'
 
 export default function Library() {
   const {
@@ -128,7 +129,7 @@ export default function Library() {
           title,
           composer,
           file,
-          duration: '0:00',
+          duration: '0:00', // You might want to get actual duration
           addedAt: Date.now(),
           degree: 'Geral',
           ritual: 'Livre',
@@ -163,14 +164,8 @@ export default function Library() {
 
   const handleBulkDelete = async () => {
     for (const id of selectedItems) {
-      if (
-        id.startsWith('local-') ||
-        id.startsWith('gdrive-') ||
-        id.startsWith('spotify-') ||
-        id.startsWith('soundcloud-')
-      ) {
-        await deleteTrack(id)
-      }
+      // Allow deleting any track ID prefix
+      await deleteTrack(id)
     }
     toast({
       title: 'Exclusão em Massa',
@@ -183,7 +178,7 @@ export default function Library() {
   const handleMoveToFolder = async (folderId: string | undefined) => {
     for (const id of selectedItems) {
       const track = library.find((t) => t.id === id)
-      if (track && track.isLocal) {
+      if (track) {
         await updateTrack({ ...track, folderId })
       }
     }
@@ -233,8 +228,10 @@ export default function Library() {
               size="sm"
               onClick={toggleOfflineMode}
               className={cn(
-                'gap-2',
-                isOfflineMode && 'bg-primary text-black hover:bg-primary/90',
+                'gap-2 transition-all',
+                isOfflineMode
+                  ? 'bg-primary text-black hover:bg-primary/90 shadow-[0_0_15px_rgba(191,255,0,0.3)]'
+                  : 'hover:border-primary/50',
               )}
             >
               {isOfflineMode ? (
@@ -242,16 +239,22 @@ export default function Library() {
               ) : (
                 <Wifi className="w-4 h-4" />
               )}
-              {isOfflineMode ? 'Offline Mode' : 'Online'}
+              {isOfflineMode ? 'Modo Offline' : 'Online'}
             </Button>
 
-            <Button
-              variant="outline"
-              className="mr-2 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={() => setIsPlaylistDialogOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Criar Playlist
-            </Button>
+            <Link to="/settings">
+              <Button
+                variant="outline"
+                className="shadow-sm gap-2 border-white/10 hover:border-white/30"
+              >
+                <img
+                  src="https://img.usecurling.com/i?q=google&shape=fill"
+                  className="w-4 h-4"
+                  alt="Drive"
+                />
+                <span className="hidden sm:inline">Google Drive</span>
+              </Button>
+            </Link>
 
             {currentFolderId && (
               <Button
@@ -263,27 +266,35 @@ export default function Library() {
               </Button>
             )}
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              multiple
-              accept=".mp3,audio/*"
-              onChange={handleFileChange}
-            />
-            <Button onClick={handleImportClick} className="shadow-sm">
-              <FolderInput className="w-4 h-4 mr-2" /> Importar
-            </Button>
+            <div className="flex gap-1">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                multiple
+                accept=".mp3,audio/*"
+                onChange={handleFileChange}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Plus className="w-4 h-4" /> Adicionar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleImportClick}>
+                    <FolderInput className="w-4 h-4 mr-2" /> Importar Local
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsPlaylistDialogOpen(true)}
+                  >
+                    <List className="w-4 h-4 mr-2" /> Criar Playlist
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-            <Button
-              onClick={() => setIsImportDialogOpen(true)}
-              variant="outline"
-              className="shadow-sm gap-2"
-            >
-              <CloudDownload className="w-4 h-4" /> Services
-            </Button>
-
-            <div className="relative flex-1 md:w-64 ml-2">
+            <div className="relative flex-1 md:w-56 ml-2">
               <Input
                 placeholder="Buscar por nome..."
                 value={search}
@@ -362,7 +373,7 @@ export default function Library() {
 
         <div className="flex-1 overflow-y-auto">
           {viewMode === 'list' ? (
-            <div className="rounded-md border border-border bg-card">
+            <div className="rounded-xl border border-white/5 bg-white/5 overflow-hidden">
               <div className="p-2 space-y-1">
                 {libraryTracks.length > 0 ? (
                   libraryTracks.map((track, idx) => (
@@ -381,21 +392,25 @@ export default function Library() {
                       }}
                       onAddToQueue={() => addToQueue([track])}
                       onEdit={() => setTrackToEdit(track)}
-                      onDelete={
-                        track.isLocal ? () => handleDelete(track.id) : undefined
-                      }
-                      onMoveToFolder={
-                        track.isLocal
-                          ? (fid) => updateTrack({ ...track, folderId: fid })
-                          : undefined
+                      onDelete={() => handleDelete(track.id)}
+                      onMoveToFolder={(fid) =>
+                        updateTrack({ ...track, folderId: fid })
                       }
                       folders={folders}
                     />
                   ))
                 ) : (
-                  <div className="p-12 text-center flex flex-col items-center gap-4 text-muted-foreground">
-                    <FolderInput className="w-12 h-12 opacity-20" />
-                    <p>Nenhum arquivo encontrado.</p>
+                  <div className="p-20 text-center flex flex-col items-center gap-6 text-muted-foreground">
+                    <FolderInput className="w-16 h-16 opacity-10" />
+                    <div>
+                      <p className="text-lg font-medium mb-1">
+                        Nenhum arquivo encontrado
+                      </p>
+                      <p className="text-sm opacity-60">
+                        Tente importar do Google Drive ou adicionar arquivos
+                        locais.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -405,9 +420,9 @@ export default function Library() {
               {libraryTracks.map((track, idx) => (
                 <div
                   key={track.id}
-                  className="group relative flex flex-col gap-2 p-3 rounded-lg hover:bg-secondary/20 transition-all border border-transparent hover:border-border"
+                  className="group relative flex flex-col gap-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
                 >
-                  <div className="aspect-square rounded-md bg-secondary overflow-hidden relative shadow-sm">
+                  <div className="aspect-square rounded-lg bg-black/40 overflow-hidden relative shadow-lg">
                     {track.cover ? (
                       <img
                         src={track.cover}
@@ -419,18 +434,23 @@ export default function Library() {
                         <List className="w-12 h-12 text-muted-foreground/30" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button
                         size="icon"
-                        className="rounded-full h-12 w-12"
+                        className="rounded-full h-12 w-12 bg-primary text-black hover:bg-white"
                         onClick={() => handlePlayContext(idx)}
                       >
                         <Play className="w-5 h-5 ml-1" />
                       </Button>
                     </div>
+                    {track.offlineAvailable && (
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-black shadow-lg">
+                        <CloudDownload className="w-3 h-3" />
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm truncate">
+                    <h3 className="font-bold text-sm truncate text-white">
                       {track.title}
                     </h3>
                     <p className="text-xs text-muted-foreground truncate">
