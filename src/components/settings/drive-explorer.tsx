@@ -16,9 +16,9 @@ import {
   Download,
   Check,
   Music,
+  AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { saveTrack } from '@/lib/storage'
 import { toast } from '@/hooks/use-toast'
@@ -34,6 +34,7 @@ export function DriveExplorer() {
     navigateToFolder,
     isLoading: isDriveLoading,
     syncFolder,
+    error,
   } = useGoogleDrive()
 
   const { isSyncing, refreshLibrary, downloadTrackForOffline } =
@@ -45,7 +46,7 @@ export function DriveExplorer() {
 
   // Load files when path changes
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !error) {
       setLoadingFiles(true)
       const currentFolder = currentPath[currentPath.length - 1]
       listFiles(currentFolder?.id || 'root').then((data) => {
@@ -53,7 +54,7 @@ export function DriveExplorer() {
         setLoadingFiles(false)
       })
     }
-  }, [isAuthenticated, currentPath, listFiles])
+  }, [isAuthenticated, currentPath, listFiles, error])
 
   const handleSyncFolder = async (e: React.MouseEvent, folder: GDriveFile) => {
     e.stopPropagation()
@@ -133,6 +134,26 @@ export function DriveExplorer() {
         return next
       })
     }
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 border border-destructive/30 rounded-2xl bg-destructive/10 space-y-4 animate-fade-in">
+        <AlertCircle className="w-12 h-12 text-destructive" />
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-bold text-destructive">
+            Erro de Configuração
+          </h3>
+          <p className="text-sm text-destructive-foreground max-w-sm">
+            {error}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Verifique as chaves de API (VITE_GOOGLE_API_KEY e
+            VITE_GOOGLE_CLIENT_ID) no arquivo .env
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (!isAuthenticated) {

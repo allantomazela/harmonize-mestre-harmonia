@@ -44,32 +44,49 @@ export function useGoogleDrive() {
   const [user, setUser] = useState<GoogleUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentPath, setCurrentPath] = useState<GDriveFile[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const { refreshLibrary, setIsSyncing } = useAudioPlayer()
   const { toast } = useToast()
 
   // Load Scripts on Mount
   useEffect(() => {
+    let isMounted = true
+
     loadGoogleScripts(
       async () => {
+        if (!isMounted) return
         // GAPI Loaded
         try {
           await initializeGapiClient()
-        } catch (error) {
-          console.error('GAPI Init Error', error)
+        } catch (err: any) {
+          console.error('GAPI Init Error', err)
+          if (isMounted)
+            setError(err.message || 'Failed to initialize Google API')
         }
       },
       () => {
+        if (!isMounted) return
         // GIS Loaded
-        initializeTokenClient((response) => {
-          if (response && response.access_token) {
-            setIsAuthenticated(true)
-            fetchUserInfo()
-          }
-        })
-        setIsScriptLoaded(true)
+        try {
+          initializeTokenClient((response) => {
+            if (response && response.access_token) {
+              setIsAuthenticated(true)
+              fetchUserInfo()
+            }
+          })
+          setIsScriptLoaded(true)
+        } catch (err: any) {
+          console.error('GIS Init Error', err)
+          if (isMounted)
+            setError(err.message || 'Failed to initialize Identity Services')
+        }
       },
     )
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const fetchUserInfo = async () => {
@@ -90,11 +107,19 @@ export function useGoogleDrive() {
   }
 
   const login = () => {
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Configuração',
+        description: error,
+      })
+      return
+    }
     if (!isScriptLoaded) {
       toast({
         variant: 'destructive',
         title: 'Serviço Indisponível',
-        description: 'Os scripts do Google ainda não foram carregados.',
+        description: 'Aguardando carregamento dos scripts do Google.',
       })
       return
     }
@@ -114,6 +139,7 @@ export function useGoogleDrive() {
 
   const listFiles = useCallback(
     async (folderId: string = 'root') => {
+      if (error) return []
       setIsLoading(true)
       try {
         const files = await listDriveFiles(folderId)
@@ -130,7 +156,7 @@ export function useGoogleDrive() {
         return []
       }
     },
-    [toast],
+    [toast, error],
   )
 
   const navigateToFolder = (folder: GDriveFile | null) => {
@@ -148,6 +174,15 @@ export function useGoogleDrive() {
 
   const syncFolder = useCallback(
     async (folderId: string, folderName: string) => {
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Serviço não inicializado corretamente.',
+        })
+        return
+      }
+
       setIsSyncing(true)
       setIsLoading(true)
 
@@ -240,7 +275,7 @@ export function useGoogleDrive() {
         toast({
           title: 'Sincronização Concluída',
           description,
-          variant: newCount > 0 || updatedCount > 0 ? 'default' : 'default', // could use different variant
+          variant: newCount > 0 || updatedCount > 0 ? 'default' : 'default',
         })
       } catch (e) {
         console.error(e)
@@ -254,7 +289,7 @@ export function useGoogleDrive() {
         setIsSyncing(false)
       }
     },
-    [refreshLibrary, toast, setIsSyncing],
+    [refreshLibrary, toast, setIsSyncing, error],
   )
 
   return {
@@ -267,5 +302,6 @@ export function useGoogleDrive() {
     currentPath,
     navigateToFolder,
     syncFolder,
+    error,
   }
 }
