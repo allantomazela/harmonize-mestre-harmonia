@@ -109,6 +109,11 @@
   .text-glow {
     text-shadow: 0 0 15px hsl(var(--primary) / 0.6);
   }
+
+  /* Custom Easing for Fluid Animations */
+  .ease-fluid {
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
 }
 
 /* Animations */

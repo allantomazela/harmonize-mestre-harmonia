@@ -59,7 +59,7 @@ export default function Player() {
       {/* Main Layout Area */}
       <div className="flex-1 relative z-10 flex min-h-0">
         {/* Zone 1: Main Stage */}
-        <div className="flex-1 flex flex-col min-w-0 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+        <div className="flex-1 flex flex-col min-w-0 transition-all duration-500 ease-fluid">
           {/* Header Overlay */}
           <div className="h-16 flex items-center justify-between px-6 shrink-0">
             <Button
@@ -133,7 +133,7 @@ export default function Player() {
         {/* Zone 2: Functional Sidebar */}
         <div
           className={cn(
-            'glass border-l border-white/5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col overflow-hidden relative z-20',
+            'glass border-l border-white/5 transition-all duration-500 ease-fluid flex flex-col overflow-hidden relative z-20',
             sidebarOpen
               ? 'w-[380px] translate-x-0 opacity-100'
               : 'w-0 translate-x-20 opacity-0',
