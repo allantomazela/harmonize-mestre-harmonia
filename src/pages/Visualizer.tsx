@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   VisualizerCanvas,
   VisualizationMode,
 } from '@/components/visualizer/visualizer-canvas'
+import { VJOverlay } from '@/components/visualizer/vj-overlay'
 import { Button } from '@/components/ui/button'
 import {
   ArrowLeft,
@@ -12,6 +13,8 @@ import {
   Circle,
   Sparkles,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -20,7 +23,8 @@ import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 export default function Visualizer() {
   const [mode, setMode] = useState<VisualizationMode>('bars')
   const [fullScreen, setFullScreen] = useState(false)
-  const { isCorsRestricted } = useAudioPlayer()
+  const [showOverlay, setShowOverlay] = useState(true)
+  const { isCorsRestricted, currentTrack } = useAudioPlayer()
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -34,18 +38,31 @@ export default function Visualizer() {
     }
   }
 
+  // Handle escape key for fullscreen state sync
+  useEffect(() => {
+    const handleChange = () => {
+      setFullScreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleChange)
+    return () => document.removeEventListener('fullscreenchange', handleChange)
+  }, [])
+
   return (
     <div
       className={cn(
-        'relative bg-black min-h-screen flex flex-col items-center justify-center overflow-hidden',
-        fullScreen ? 'p-0' : 'p-4',
+        'relative bg-black min-h-screen flex flex-col items-center justify-center overflow-hidden font-sans',
+        fullScreen ? 'p-0 cursor-none' : 'p-4',
+        // Show cursor on hover/interaction even in fullscreen
+        fullScreen && 'hover:cursor-default',
       )}
     >
       {/* Controls Overlay - Hidden in full screen unless hovered */}
       <div
         className={cn(
-          'absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-50 transition-opacity hover:opacity-100',
-          fullScreen ? 'opacity-0' : 'opacity-100',
+          'absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-50 transition-all duration-300',
+          fullScreen
+            ? 'opacity-0 hover:opacity-100 -translate-y-full hover:translate-y-0'
+            : 'opacity-100 translate-y-0',
         )}
       >
         <Link to="/live-mode">
@@ -59,7 +76,10 @@ export default function Visualizer() {
             variant={mode === 'bars' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setMode('bars')}
-            className="rounded-full h-8"
+            className={cn(
+              'rounded-full h-8',
+              mode === 'bars' && 'bg-[#CCFF00] text-black hover:bg-[#b3e600]',
+            )}
             disabled={isCorsRestricted}
           >
             <BarChart2 className="w-4 h-4 mr-2" /> Bars
@@ -68,7 +88,11 @@ export default function Visualizer() {
             variant={mode === 'circular' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setMode('circular')}
-            className="rounded-full h-8"
+            className={cn(
+              'rounded-full h-8',
+              mode === 'circular' &&
+                'bg-[#CCFF00] text-black hover:bg-[#b3e600]',
+            )}
             disabled={isCorsRestricted}
           >
             <Circle className="w-4 h-4 mr-2" /> Radar
@@ -77,31 +101,54 @@ export default function Visualizer() {
             variant={mode === 'particles' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setMode('particles')}
-            className="rounded-full h-8"
+            className={cn(
+              'rounded-full h-8',
+              mode === 'particles' &&
+                'bg-[#CCFF00] text-black hover:bg-[#b3e600]',
+            )}
             disabled={isCorsRestricted}
           >
             <Sparkles className="w-4 h-4 mr-2" /> Nebula
           </Button>
         </div>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleFullScreen}
-          className="text-white border-white/20 hover:bg-white/10"
-        >
-          {fullScreen ? (
-            <Minimize2 className="w-5 h-5" />
-          ) : (
-            <Maximize2 className="w-5 h-5" />
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowOverlay(!showOverlay)}
+            className="text-white hover:bg-white/10"
+            title="Toggle Overlay"
+          >
+            {showOverlay ? (
+              <Eye className="w-5 h-5" />
+            ) : (
+              <EyeOff className="w-5 h-5" />
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleFullScreen}
+            className="text-white border-white/20 hover:bg-white/10"
+          >
+            {fullScreen ? (
+              <Minimize2 className="w-5 h-5" />
+            ) : (
+              <Maximize2 className="w-5 h-5" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Canvas */}
       <div className="w-full h-full absolute inset-0">
         <VisualizerCanvas mode={mode} />
       </div>
+
+      {/* VJ Dynamic Overlay */}
+      {currentTrack && <VJOverlay track={currentTrack} show={showOverlay} />}
 
       {/* Restricted Overlay */}
       {isCorsRestricted && (
@@ -125,7 +172,9 @@ export default function Visualizer() {
 
       {/* Overlay Info */}
       <div className="absolute bottom-10 left-10 pointer-events-none opacity-50 text-white font-mono text-xs">
-        VJ MODE: {isCorsRestricted ? 'OFFLINE' : mode.toUpperCase()}
+        VJ MODE: {isCorsRestricted ? 'OFFLINE' : mode.toUpperCase()}{' '}
+        <span className="text-[#CCFF00]">●</span>{' '}
+        {fullScreen ? 'FULLSCREEN' : 'WINDOWED'}
       </div>
     </div>
   )

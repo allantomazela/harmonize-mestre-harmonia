@@ -1,5 +1,13 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, ChevronRight, HardDrive, RefreshCw } from 'lucide-react'
+import {
+  Bell,
+  ChevronRight,
+  HardDrive,
+  RefreshCw,
+  Cloud,
+  CloudOff,
+  Check,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -9,10 +17,11 @@ import {
 } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
+import { cn } from '@/lib/utils'
 
 export function TopHeader() {
   const location = useLocation()
-  const { isSyncing } = useAudioPlayer()
+  const { isSyncing, syncStatus, isOfflineMode } = useAudioPlayer()
 
   const getBreadcrumbs = () => {
     const path = location.pathname
@@ -47,6 +56,31 @@ export function TopHeader() {
     })
   }
 
+  const getSyncStatusIcon = () => {
+    if (isOfflineMode) return <CloudOff className="w-3.5 h-3.5" />
+    if (syncStatus === 'syncing')
+      return <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+    if (syncStatus === 'synced') return <Check className="w-3.5 h-3.5" />
+    return <Cloud className="w-3.5 h-3.5" />
+  }
+
+  const getSyncStatusLabel = () => {
+    if (isOfflineMode) return 'Offline'
+    if (syncStatus === 'syncing') return 'Sincronizando...'
+    if (syncStatus === 'synced') return 'Nuvem Ok'
+    return 'Conectado'
+  }
+
+  const getSyncStatusColor = () => {
+    if (isOfflineMode)
+      return 'text-muted-foreground bg-secondary/50 border-transparent'
+    if (syncStatus === 'syncing')
+      return 'text-blue-500 bg-blue-500/10 border-blue-500/20'
+    if (syncStatus === 'synced')
+      return 'text-green-500 bg-green-500/10 border-green-500/20'
+    return 'text-foreground bg-secondary/20 border-transparent'
+  }
+
   return (
     <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-6 sticky top-0 z-20">
       <div className="flex items-center text-sm">
@@ -58,27 +92,28 @@ export function TopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        {isSyncing && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 animate-fade-in">
-            <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
-            <span className="text-xs font-medium text-blue-500">
-              Sincronizando...
-            </span>
-          </div>
-        )}
-
+        {/* Cloud Sync Indicator */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/20 cursor-help">
-                <HardDrive className="w-4 h-4 text-green-500" />
-                <span className="text-xs font-medium text-green-500 hidden sm:inline">
-                  Modo Local Ativo
+              <div
+                className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all cursor-help',
+                  getSyncStatusColor(),
+                )}
+              >
+                {getSyncStatusIcon()}
+                <span className="text-xs font-medium hidden sm:inline">
+                  {getSyncStatusLabel()}
                 </span>
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Operando em modo offline com arquivos locais</p>
+              <p>
+                {isOfflineMode
+                  ? 'Modo Offline ativo. Alterações serão salvas localmente.'
+                  : 'Seus dados estão sendo sincronizados com a nuvem.'}
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

@@ -30,6 +30,7 @@ import { ritualTemplates, matchTracksToTemplate } from '@/lib/ritual-templates'
 import { fetchDriveFileBlob } from '@/lib/google-drive'
 import { renderPlaylistMix } from '@/lib/audio-exporter'
 import { isServiceConnected } from '@/lib/integrations'
+import { fetchCloudData, saveCloudData, isOnline } from '@/lib/cloud-mock'
 
 export interface Track {
   id: string
@@ -65,6 +66,7 @@ export interface Track {
 export type AcousticEnvironment = 'none' | 'temple' | 'cathedral' | 'small-room'
 export type FadeCurve = 'linear' | 'exponential' | 'smooth'
 export type TransitionType = 'fade' | 'instant'
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error'
 
 interface EffectsState {
   reverb: { mix: number; decay: number; preDelay: number }
@@ -106,6 +108,8 @@ interface AudioPlayerContextType {
   fadeCurve: FadeCurve
   isLoading: boolean
   isSyncing: boolean
+  syncStatus: SyncStatus // New
+  lastSyncedAt: number | null // New
   isAutoPlay: boolean
   isOfflineMode: boolean
   isCorsRestricted: boolean
@@ -221,6 +225,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('exponential')
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced')
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [isCorsRestricted, setIsCorsRestricted] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<
@@ -246,33 +253,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   // Audio Graph Refs
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
-  const gainNodeRef = useRef<GainNode | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
 
-  // Effect Nodes
+  // ... (Other Refs omitted for brevity as they are handled inside useEffects or existing refs)
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const gainNodeRef = useRef<GainNode | null>(null)
   const distortionNodeRef = useRef<WaveShaperNode | null>(null)
   const bassBoostNodeRef = useRef<BiquadFilterNode | null>(null)
   const compressorNodeRef = useRef<DynamicsCompressorNode | null>(null)
-
-  // Delay Chain
   const delayNodeRef = useRef<DelayNode | null>(null)
   const delayFeedbackRef = useRef<GainNode | null>(null)
   const delayWetGainRef = useRef<GainNode | null>(null)
   const delayDryGainRef = useRef<GainNode | null>(null)
   const delayMergeRef = useRef<GainNode | null>(null)
-
-  // Reverb Chain
   const reverbConvolverRef = useRef<ConvolverNode | null>(null)
   const reverbWetGainRef = useRef<GainNode | null>(null)
   const reverbDryGainRef = useRef<GainNode | null>(null)
   const reverbMergeRef = useRef<GainNode | null>(null)
-
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const retryCountRef = useRef<number>(0)
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Persistence Effects
   useEffect(
@@ -301,17 +303,82 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     [bassBoostLevel],
   )
 
+  // Cloud Synchronization Logic
+  const syncToCloud = useCallback(async () => {
+    if (!isOnline() || isOfflineMode) {
+      setSyncStatus('offline')
+      return
+    }
+
+    setSyncStatus('syncing')
+    try {
+      await saveCloudData({
+        playlists,
+        queue: queue.map((t) => ({ ...t, file: undefined })), // Avoid sending blobs to mock storage
+        settings: {
+          volume,
+          effects,
+          theme: 'dark', // Mock theme sync
+        },
+      })
+      setSyncStatus('synced')
+      setLastSyncedAt(Date.now())
+    } catch (e) {
+      console.error('Cloud Sync Failed', e)
+      setSyncStatus('error')
+    }
+  }, [playlists, queue, volume, effects, isOfflineMode])
+
+  // Debounced Sync trigger
+  useEffect(() => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
+    syncTimeoutRef.current = setTimeout(() => {
+      syncToCloud()
+    }, 2000) // Sync 2 seconds after last change
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
+    }
+  }, [playlists, queue, volume, effects, syncToCloud])
+
+  // Initial Load from Cloud
+  useEffect(() => {
+    const initCloud = async () => {
+      if (!isOnline()) return
+      const cloudData = await fetchCloudData()
+      if (cloudData) {
+        if (cloudData.playlists) setPlaylists(cloudData.playlists)
+        // Merge queue logic could be complex, for now we assume local session priority or restore if empty
+        if (queue.length === 0 && cloudData.queue) setQueue(cloudData.queue)
+
+        if (cloudData.settings) {
+          setVolume(cloudData.settings.volume ?? 0.8)
+          if (cloudData.settings.effects) setEffects(cloudData.settings.effects)
+        }
+        setLastSyncedAt(cloudData.updatedAt)
+      }
+    }
+    initCloud()
+  }, [])
+
   // Network Status Listener
   useEffect(() => {
-    const handleOnline = () => setIsOfflineMode(false)
-    const handleOffline = () => setIsOfflineMode(true)
+    const handleOnline = () => {
+      setIsOfflineMode(false)
+      setSyncStatus('syncing')
+      syncToCloud()
+    }
+    const handleOffline = () => {
+      setIsOfflineMode(true)
+      setSyncStatus('offline')
+    }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [])
+  }, [syncToCloud])
 
   const checkIntegrations = useCallback(() => {
     setConnectedServices({
@@ -359,15 +426,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       setLibrary(allTracks)
       setFolders(loadedFolders)
+
+      // Merge local DB playlists with potential cloud state if needed
+      // For now, we rely on local DB as source of truth which syncs to cloud
       setPlaylists(loadedPlaylists)
       setPresets(loadedPresets)
-
-      setQueue((prev) => {
-        if (prev.length === 0) return allTracks
-        return prev.map(
-          (qTrack) => allTracks.find((t) => t.id === qTrack.id) || qTrack,
-        )
-      })
     } catch (error) {
       console.error('Failed to load library', error)
       setLibrary(musicLibrary)
@@ -492,13 +555,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       // --- Connect Graph ---
       // Source -> Distortion -> BassBoost -> DelayChain -> ReverbChain -> Compressor -> Analyser -> Gain -> Dest
 
-      // 1. Source to Distortion
       source.connect(distortion)
-
-      // 2. Distortion to BassBoost
       distortion.connect(bassBoost)
 
-      // 3. BassBoost to Delay Chain input
       bassBoost.connect(delay)
       bassBoost.connect(delayDry)
 
@@ -506,7 +565,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       delayWet.connect(delayMerge)
       delayDry.connect(delayMerge)
 
-      // 4. DelayChain output (delayMerge) to Reverb Chain input
       delayMerge.connect(convolver)
       delayMerge.connect(reverbDry)
 
@@ -514,16 +572,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       reverbWet.connect(reverbMerge)
       reverbDry.connect(reverbMerge)
 
-      // 5. ReverbChain output (reverbMerge) to Compressor
       reverbMerge.connect(compressor)
-
-      // 6. Compressor to Analyser
       compressor.connect(analyser)
-
-      // 7. Analyser to Master Gain
       analyser.connect(gain)
-
-      // 8. Gain to Destination
       gain.connect(ctx.destination)
     }
   }, [])
@@ -533,19 +584,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     if (!audioContextRef.current) return
     const ctx = audioContextRef.current
 
-    // Update Distortion
     if (distortionNodeRef.current) {
       distortionNodeRef.current.curve = makeDistortionCurve(
         effects.distortion.amount,
       )
     }
 
-    // Update Bass Boost
     if (bassBoostNodeRef.current) {
       bassBoostNodeRef.current.gain.value = (bassBoostLevel / 100) * 15
     }
 
-    // Update Delay
     if (
       delayNodeRef.current &&
       delayFeedbackRef.current &&
@@ -558,13 +606,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       delayDryGainRef.current.gain.value = 1 - effects.delay.mix
     }
 
-    // Update Reverb
     if (
       reverbConvolverRef.current &&
       reverbWetGainRef.current &&
       reverbDryGainRef.current
     ) {
-      // Re-generate impulse only if significant changes to prevent glitches, or use simple approach
       if (effects.reverb.mix > 0 && !reverbConvolverRef.current.buffer) {
         reverbConvolverRef.current.buffer = impulseResponse(
           effects.reverb.decay,
@@ -577,7 +623,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       reverbDryGainRef.current.gain.value = 1 - effects.reverb.mix
     }
 
-    // Update Compressor (Normalization)
     if (compressorNodeRef.current) {
       compressorNodeRef.current.ratio.value = isNormalizationEnabled ? 12 : 1
       compressorNodeRef.current.threshold.value = isNormalizationEnabled
@@ -599,7 +644,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       },
     }))
 
-    // Regenerate Reverb Impulse if decay changes
     if (effect === 'reverb' && param === 'decay' && audioContextRef.current) {
       if (reverbConvolverRef.current) {
         reverbConvolverRef.current.buffer = impulseResponse(
@@ -645,7 +689,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  // Fade Logic & Helpers
   const currentTrack = queue[currentIndex]
 
   const calculateCurve = useCallback((t: number, curve: FadeCurve) => {
@@ -746,8 +789,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       const startNewTrack = async () => {
         if (!audioRef.current) return
-
-        // Reset CORS state and retry count for new track
         retryCountRef.current = 0
         setIsCorsRestricted(false)
         audioRef.current.crossOrigin = 'anonymous'
@@ -836,7 +877,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  // Initialization of Control Methods (Moved BEFORE usage in useEffect)
   const playNext = useCallback(() => {
     setQueue((q) => {
       setCurrentIndex((prev) => {
@@ -904,11 +944,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       performFade(0, crossfadeDuration, fadeCurve, () => safePause())
   }, [isPlaying, crossfadeDuration, fadeCurve, performFade, safePause])
 
-  // Audio Event Listeners (NOW Safe to use playNext)
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
-      // Default to anonymous to enable WebAudio features, handled by retry logic if fails
       audioRef.current.crossOrigin = 'anonymous'
       audioRef.current.preload = 'auto'
     }
@@ -935,13 +973,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const handleWaiting = () => setIsLoading(true)
     const handleCanPlay = () => setIsLoading(false)
 
-    // Robust Error Handling for CORS
     const handleError = (e: Event) => {
       const target = e.target as HTMLAudioElement
       const err = target.error
       console.warn('Audio Playback Error:', err)
 
-      // Retry mechanism for CORS issues
       if (target.crossOrigin === 'anonymous' && retryCountRef.current === 0) {
         console.warn('Attempting fallback: disabling CORS for playback.')
         retryCountRef.current += 1
@@ -1063,7 +1099,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setCurrentIndex(0)
   }, [])
 
-  // CRUD helpers
   const createFolder = async (name: string) => {
     await saveFolder({ id: crypto.randomUUID(), name, createdAt: Date.now() })
     await refreshLibrary()
@@ -1144,8 +1179,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     try {
       let blob: Blob
-
-      // Start progress simulation since we don't have true stream progress from simplified fetch wrappers
       const progressInterval = setInterval(() => {
         setDownloadProgress((prev) => {
           const current = prev[track.id] || 0
@@ -1174,7 +1207,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         description: 'Faixa disponível offline.',
       })
 
-      // Clear progress after a moment
       setTimeout(() => {
         setDownloadProgress((prev) => {
           const next = { ...prev }
@@ -1298,6 +1330,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         fadeCurve,
         isLoading,
         isSyncing,
+        syncStatus, // New
+        lastSyncedAt, // New
         isAutoPlay,
         isOfflineMode,
         isCorsRestricted,
