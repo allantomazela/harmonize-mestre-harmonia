@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
+import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { Button } from './button'
 import { Flag, Scissors } from 'lucide-react'
 
@@ -35,12 +35,12 @@ export function Waveform({
   const trimStart = isCurrent ? currentTrack?.trimStart || 0 : 0
   const trimEnd = isCurrent ? currentTrack?.trimEnd || duration : duration
 
-  // Generate deterministic random bars
+  // Generate deterministic random bars with a "mirrored" look for studio vibe
   const bars = useMemo(() => {
     const seed = trackId
       .split('')
       .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    const count = 150
+    const count = 120
     const data = []
     for (let i = 0; i < count; i++) {
       const val = Math.sin(i * 0.15 + seed) * 0.5 + 0.5
@@ -66,25 +66,19 @@ export function Waveform({
 
     const width = rect.width
     const barWidth = width / bars.length
-    const gap = 1
-    const actualBarWidth = barWidth - gap
+    const gap = 2
+    const actualBarWidth = Math.max(1, barWidth - gap)
 
     ctx.clearRect(0, 0, width, height)
 
     // Calculate crop ranges in pixels
     const trimStartX = (trimStart / duration) * width
     const trimEndX = (trimEnd / duration) * width
-    const progressX = (progress / duration) * width
 
-    // Background for trimmed area
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-    ctx.fillRect(0, 0, trimStartX, height)
-    ctx.fillRect(trimEndX, 0, width - trimEndX, height)
-
-    // Draw Bars
+    // Draw Bars (Mirrored Style)
     bars.forEach((barHeight, index) => {
       const x = index * barWidth
-      const h = barHeight * height * 0.8
+      const h = barHeight * height * 0.6 // Reduce max height to keep in bounds
       const y = (height - h) / 2
 
       // Check if within trim
@@ -93,52 +87,60 @@ export function Waveform({
       const isPlayed = (x / width) * duration < progress
 
       if (isTrimmed) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'
       } else {
-        ctx.fillStyle = isPlayed ? color : 'rgba(255, 255, 255, 0.3)'
+        ctx.fillStyle = isPlayed ? color : 'rgba(255, 255, 255, 0.2)'
       }
 
       ctx.beginPath()
-      ctx.roundRect(x, y, Math.max(1, actualBarWidth), h, 2)
+      // Top rounded bar
+      ctx.roundRect(x, y, actualBarWidth, h, 2)
       ctx.fill()
     })
+
+    // Draw Playhead
+    const playheadX = (progress / duration) * width
+    ctx.beginPath()
+    ctx.moveTo(playheadX, 0)
+    ctx.lineTo(playheadX, height)
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    // Playhead Glow
+    ctx.shadowBlur = 10
+    ctx.shadowColor = color
+    ctx.stroke()
+    ctx.shadowBlur = 0 // Reset
 
     // Draw Cues
     cues.forEach((cueTime) => {
       const cx = (cueTime / duration) * width
       ctx.fillStyle = '#ef4444' // Red
       ctx.beginPath()
-      ctx.moveTo(cx, 0)
-      ctx.lineTo(cx, height)
+      ctx.moveTo(cx, height / 2 - 10)
+      ctx.lineTo(cx, height / 2 + 10)
       ctx.strokeStyle = '#ef4444'
       ctx.lineWidth = 2
       ctx.stroke()
 
       // Marker Head
       ctx.beginPath()
-      ctx.arc(cx, 10, 4, 0, Math.PI * 2)
+      ctx.arc(cx, height / 2 - 12, 3, 0, Math.PI * 2)
       ctx.fill()
     })
-
-    // Draw Trim Handles
-    if (isCurrent) {
-      // Start
-      ctx.fillStyle = '#eab308' // Yellow
-      ctx.fillRect(trimStartX - 2, 0, 4, height)
-
-      // End
-      ctx.fillRect(trimEndX - 2, 0, 4, height)
-    }
 
     // Hover Line
     if (hoverTime !== null) {
       const hx = (hoverTime / duration) * width
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'
       ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
       ctx.beginPath()
       ctx.moveTo(hx, 0)
       ctx.lineTo(hx, height)
       ctx.stroke()
+      ctx.setLineDash([])
     }
   }, [
     bars,
@@ -179,7 +181,6 @@ export function Waveform({
     const rect = containerRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const percentage = x / rect.width
-    // Basic seek
     onSeek(percentage * duration)
   }
 
@@ -215,33 +216,33 @@ export function Waveform({
 
       {/* Interactive Controls Overlay */}
       {isCurrent && (
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute -top-10 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             size="icon"
-            variant="secondary"
-            className="h-6 w-6"
+            variant="ghost"
+            className="h-8 w-8 hover:bg-white/10"
             onClick={handleAddCue}
             title="Add Cue Point"
           >
-            <Flag className="w-3 h-3 text-red-500" />
+            <Flag className="w-4 h-4 text-red-500" />
           </Button>
           <Button
             size="icon"
-            variant="secondary"
-            className="h-6 w-6"
+            variant="ghost"
+            className="h-8 w-8 hover:bg-white/10"
             onClick={handleSetTrimStart}
             title="Set Start Crop"
           >
-            <Scissors className="w-3 h-3 rotate-180" />
+            <Scissors className="w-4 h-4 rotate-180" />
           </Button>
           <Button
             size="icon"
-            variant="secondary"
-            className="h-6 w-6"
+            variant="ghost"
+            className="h-8 w-8 hover:bg-white/10"
             onClick={handleSetTrimEnd}
             title="Set End Crop"
           >
-            <Scissors className="w-3 h-3" />
+            <Scissors className="w-4 h-4" />
           </Button>
         </div>
       )}
