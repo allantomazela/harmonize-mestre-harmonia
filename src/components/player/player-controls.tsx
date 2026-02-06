@@ -46,6 +46,7 @@ export function PlayerControls({
     currentTrack,
     downloadTrackForOffline,
     isOfflineMode,
+    isTransitioning,
   } = useAudioPlayer()
 
   const formatTime = (seconds: number) => {
@@ -116,15 +117,17 @@ export function PlayerControls({
 
           <Button
             onClick={onTogglePlay}
-            disabled={isLoading}
+            disabled={isLoading && !isTransitioning}
             className={cn(
               'h-14 w-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center',
               isPlaying
                 ? 'bg-primary text-black shadow-[0_0_20px_hsl(var(--primary)/0.4)]'
                 : 'bg-white text-black hover:bg-white/90',
+              isTransitioning &&
+                'border-2 border-[#CCFF00] shadow-[0_0_20px_rgba(204,255,0,0.5)]',
             )}
           >
-            {isLoading ? (
+            {isLoading && !isTransitioning ? (
               <Loader2 className="w-6 h-6 animate-spin" />
             ) : isPlaying ? (
               <Pause className="w-6 h-6 fill-current" />

@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
-import { Activity, Music, Zap } from 'lucide-react'
+import { Activity, Music, Zap, Shuffle } from 'lucide-react'
 
 export function AudioSettings() {
   const {
@@ -28,6 +28,8 @@ export function AudioSettings() {
     setIsNormalizationEnabled,
     bassBoostLevel,
     setBassBoostLevel,
+    isAutoPlay,
+    toggleAutoPlay,
   } = useAudioPlayer()
 
   return (
@@ -44,46 +46,48 @@ export function AudioSettings() {
         {/* Transitions Section */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <Zap className="w-4 h-4" /> Transições
+            <Zap className="w-4 h-4" /> Mixagem e Transições
           </h3>
 
           <div className="grid gap-6">
-            <div className="flex flex-col gap-3">
-              <Label>Estilo de Transição</Label>
-              <Select
-                value={transitionType}
-                onValueChange={(v: 'fade' | 'instant') => setTransitionType(v)}
-              >
-                <SelectTrigger className="w-full md:w-[300px]">
-                  <SelectValue placeholder="Selecione o estilo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fade">Suave (Fade Out/In)</SelectItem>
-                  <SelectItem value="instant">
-                    Corte Seco (Instantâneo)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between md:justify-start md:gap-12">
+              <div className="space-y-0.5">
+                <Label>Crossfade Automático</Label>
+                <p className="text-xs text-muted-foreground">
+                  Habilitar mixagem entre faixas.
+                </p>
+              </div>
+              <Switch
+                checked={transitionType === 'fade'}
+                onCheckedChange={(checked) =>
+                  setTransitionType(checked ? 'fade' : 'instant')
+                }
+                className="data-[state=checked]:bg-[#CCFF00]"
+              />
             </div>
 
             {transitionType === 'fade' && (
-              <div className="space-y-3">
+              <div className="space-y-3 p-4 border border-[#CCFF00]/20 bg-[#CCFF00]/5 rounded-lg">
                 <div className="flex justify-between">
-                  <Label>Duração do Fade</Label>
-                  <span className="text-sm font-mono text-muted-foreground">
+                  <Label className="flex items-center gap-2">
+                    <Shuffle className="w-3 h-3 text-[#CCFF00]" /> Tempo de
+                    Transição
+                  </Label>
+                  <span className="text-sm font-mono text-primary font-bold">
                     {crossfadeDuration}s
                   </span>
                 </div>
                 <Slider
                   value={[crossfadeDuration]}
-                  min={0}
+                  min={1}
                   max={12}
                   step={0.5}
                   onValueChange={(v) => setCrossfadeDuration(v[0])}
-                  className="w-full md:w-[300px]"
+                  className="w-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Tempo para suavizar a troca entre faixas.
+                  Define a duração da sobreposição entre o fim da faixa atual e
+                  o início da próxima.
                 </p>
               </div>
             )}

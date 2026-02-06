@@ -16,6 +16,8 @@ import {
   Minimize2,
   Maximize2,
   Download,
+  Shuffle,
+  Repeat,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -31,6 +33,7 @@ export default function Player() {
 
   const {
     isPlaying,
+    isTransitioning,
     currentTrack,
     queue,
     currentIndex,
@@ -77,6 +80,16 @@ export default function Player() {
             </Button>
 
             <div className="flex items-center gap-3">
+              {/* Transition Indicator - Requested by User Story */}
+              {isTransitioning && (
+                <Badge
+                  variant="outline"
+                  className="bg-[#CCFF00]/10 text-[#CCFF00] border-[#CCFF00]/30 animate-pulse uppercase font-bold tracking-widest text-[10px]"
+                >
+                  <Shuffle className="w-3 h-3 mr-1" /> Mixing
+                </Badge>
+              )}
+
               {acousticEnvironment !== 'none' && !isCorsRestricted && (
                 <Badge
                   variant="secondary"
