@@ -145,14 +145,17 @@ export function DriveExplorer() {
         <AlertCircle className="w-12 h-12 text-destructive" />
         <div className="text-center space-y-2">
           <h3 className="text-lg font-bold text-destructive">
-            Erro de Configuração
+            As credenciais do Google Drive não estão configuradas
           </h3>
           <p className="text-sm text-destructive-foreground max-w-sm">
-            {error || 'As chaves de API do Google não foram encontradas.'}
+            {error ||
+              'Para conectar ao Google Drive, você precisa adicionar as chaves de API nas configurações do ambiente.'}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Adicione VITE_GOOGLE_CLIENT_ID e VITE_GOOGLE_API_KEY ao arquivo .env
-          </p>
+          <div className="bg-black/20 p-2 rounded text-xs font-mono text-muted-foreground mt-2">
+            VITE_GOOGLE_CLIENT_ID
+            <br />
+            VITE_GOOGLE_API_KEY
+          </div>
         </div>
       </div>
     )
@@ -170,11 +173,11 @@ export function DriveExplorer() {
         </div>
         <div className="text-center space-y-3 max-w-md">
           <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-            Google Drive Import
+            Conectar ao Google Drive
           </h3>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Conecte sua conta para navegar, importar e baixar suas músicas
-            diretamente para uso offline.
+            Faça login para acessar, importar e baixar suas músicas diretamente
+            para a biblioteca do Harmonize.
           </p>
         </div>
 
@@ -186,7 +189,7 @@ export function DriveExplorer() {
           {isDriveLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            'Conectar Google Drive'
+            'Fazer Login com Google'
           )}
         </Button>
       </div>

@@ -6,6 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -20,13 +21,20 @@ import {
   Wifi,
   CloudDownload,
   Download,
+  ChevronDown,
+  HardDrive,
+  Usb,
+  UploadCloud,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { deleteTrack } from '@/lib/storage'
 import { FolderSidebar } from '@/components/library/folder-sidebar'
 import { EditTrackDialog } from '@/components/library/edit-track-dialog'
 import { CreatePlaylistDialog } from '@/components/library/create-playlist-dialog'
-import { ImportMusicDialog } from '@/components/library/import-music-dialog'
+import {
+  ImportMusicDialog,
+  ImportSource,
+} from '@/components/library/import-music-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
@@ -56,6 +64,9 @@ export default function Library() {
   const [trackToEdit, setTrackToEdit] = useState<Track | null>(null)
   const [isPlaylistDialogOpen, setIsPlaylistDialogOpen] = useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [importDialogSource, setImportDialogSource] =
+    useState<ImportSource>(null)
+
   const [filters, setFilters] = useState<{
     genres: string[]
     composers: string[]
@@ -143,6 +154,11 @@ export default function Library() {
     }
   }
 
+  const openImportDialog = (source: ImportSource = null) => {
+    setImportDialogSource(source)
+    setIsImportDialogOpen(true)
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] md:flex-row gap-6 p-4 max-w-[1600px] mx-auto animate-fade-in overflow-hidden">
       <FolderSidebar
@@ -189,12 +205,31 @@ export default function Library() {
               {isOfflineMode ? 'Modo Offline' : 'Online'}
             </Button>
 
-            <Button
-              className="gap-2 bg-primary text-black hover:bg-white transition-colors shadow-lg shadow-primary/20"
-              onClick={() => setIsImportDialogOpen(true)}
-            >
-              <Download className="w-4 h-4" /> Import Music
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2 bg-primary text-black hover:bg-white transition-colors shadow-lg shadow-primary/20">
+                  <Download className="w-4 h-4" /> Importar Músicas
+                  <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => openImportDialog('drive')}>
+                  <UploadCloud className="w-4 h-4 mr-2 text-blue-500" /> Google
+                  Drive
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openImportDialog('local')}>
+                  <HardDrive className="w-4 h-4 mr-2 text-orange-500" /> Pasta
+                  Local
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openImportDialog('usb')}>
+                  <Usb className="w-4 h-4 mr-2 text-primary" /> Dispositivo USB
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => openImportDialog(null)}>
+                  Ver todas as opções...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {currentFolderId && (
               <Button
@@ -336,7 +371,7 @@ export default function Library() {
                         Nenhum arquivo encontrado
                       </p>
                       <p className="text-sm opacity-60">
-                        Clique em "Import Music" para adicionar músicas do
+                        Clique em "Importar Músicas" para adicionar músicas do
                         Drive, Local ou USB.
                       </p>
                     </div>
@@ -406,6 +441,7 @@ export default function Library() {
       <ImportMusicDialog
         isOpen={isImportDialogOpen}
         onClose={() => setIsImportDialogOpen(false)}
+        initialSource={importDialogSource}
       />
     </div>
   )
