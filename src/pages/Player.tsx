@@ -15,16 +15,19 @@ import {
   Mic2,
   Minimize2,
   Maximize2,
+  Download,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Waveform } from '@/components/ui/waveform'
 import { Badge } from '@/components/ui/badge'
+import { ImportMusicDialog } from '@/components/library/import-music-dialog'
 
 export default function Player() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
 
   const {
     isPlaying,
@@ -82,6 +85,15 @@ export default function Player() {
                   <Waves className="w-3 h-3 mr-1" /> {acousticEnvironment}
                 </Badge>
               )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsImportDialogOpen(true)}
+                className="h-8 gap-2 border-white/10 bg-white/5 hover:bg-primary/10 hover:text-primary uppercase text-[10px] font-bold tracking-widest hidden md:flex"
+              >
+                <Download className="w-3 h-3" /> Import
+              </Button>
 
               <Link to="/live-mode">
                 <Button
@@ -196,6 +208,11 @@ export default function Player() {
           onVolumeChange={setVolume}
         />
       </div>
+
+      <ImportMusicDialog
+        isOpen={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
+      />
     </div>
   )
 }

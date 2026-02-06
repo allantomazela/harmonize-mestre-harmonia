@@ -10,11 +10,11 @@ import {
   Folder,
   BarChart2,
   CloudDownload,
-  Cloud,
   CheckCircle,
   GripVertical,
   Loader2,
   WifiOff,
+  Cloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -25,7 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 
@@ -84,11 +83,15 @@ export function TrackRow({
   const getOfflineStatus = () => {
     if (isDownloading) {
       return (
-        <div className="flex flex-col items-center justify-center w-8 h-8">
+        <div className="flex flex-col items-center justify-center w-8 h-8 relative">
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
+          <span className="text-[8px] absolute top-5 font-bold text-primary">
+            {downloadPercentage}%
+          </span>
         </div>
       )
     }
+
     if (track.offlineAvailable) {
       return (
         <div
@@ -99,8 +102,11 @@ export function TrackRow({
         </div>
       )
     }
-    // Only show download cloud if online and not downloaded
+
+    // Only show Cloud icon if online and not downloaded
     if (!isOfflineMode) {
+      if (track.file) return null // Should be handled by offlineAvailable, but as safety
+
       return (
         <Button
           variant="ghost"
@@ -112,7 +118,7 @@ export function TrackRow({
           }}
           title="Baixar para Offline"
         >
-          <CloudDownload className="w-4 h-4" />
+          <Cloud className="w-4 h-4" />
         </Button>
       )
     }
@@ -195,9 +201,6 @@ export function TrackRow({
         {/* Progress Overlay */}
         {isDownloading && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <span className="text-[9px] font-bold text-primary">
-              {downloadPercentage}%
-            </span>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
               <div
                 className="h-full bg-primary transition-all duration-300"

@@ -17,6 +17,7 @@ import {
   Check,
   Music,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
@@ -37,8 +38,12 @@ export function DriveExplorer() {
     error,
   } = useGoogleDrive()
 
-  const { isSyncing, refreshLibrary, downloadTrackForOffline } =
-    useAudioPlayer()
+  const {
+    isSyncing,
+    refreshLibrary,
+    downloadTrackForOffline,
+    downloadProgress,
+  } = useAudioPlayer()
 
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
@@ -115,11 +120,6 @@ export function DriveExplorer() {
 
       // Immediately trigger download for offline use as per user story
       await downloadTrackForOffline(newTrack)
-
-      toast({
-        title: 'Sucesso',
-        description: 'Arquivo importado e download iniciado.',
-      })
     } catch (error) {
       console.error(error)
       toast({
@@ -138,7 +138,7 @@ export function DriveExplorer() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 border border-destructive/30 rounded-2xl bg-destructive/10 space-y-4 animate-fade-in">
+      <div className="flex flex-col items-center justify-center p-8 border border-destructive/30 rounded-2xl bg-destructive/10 space-y-4 animate-fade-in h-full">
         <AlertCircle className="w-12 h-12 text-destructive" />
         <div className="text-center space-y-2">
           <h3 className="text-lg font-bold text-destructive">
@@ -148,8 +148,7 @@ export function DriveExplorer() {
             {error}
           </p>
           <p className="text-xs text-muted-foreground">
-            Verifique as chaves de API (VITE_GOOGLE_API_KEY e
-            VITE_GOOGLE_CLIENT_ID) no arquivo .env
+            Verifique as chaves de API no arquivo .env
           </p>
         </div>
       </div>
@@ -158,7 +157,7 @@ export function DriveExplorer() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 rounded-3xl bg-black/20 space-y-8 animate-fade-in">
+      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 rounded-3xl bg-black/20 space-y-8 animate-fade-in h-full">
         <div className="p-6 bg-primary/10 rounded-full shadow-[0_0_30px_-10px_hsl(var(--primary))]">
           <img
             src="https://img.usecurling.com/i?q=google&shape=fill"
@@ -181,16 +180,20 @@ export function DriveExplorer() {
           disabled={isDriveLoading}
           className="gap-3 w-full max-w-xs h-12 text-base font-semibold shadow-lg hover:shadow-primary/25 transition-all"
         >
-          {isDriveLoading ? 'Conectando...' : 'Conectar Google Drive'}
+          {isDriveLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            'Conectar Google Drive'
+          )}
         </Button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 border border-white/10 rounded-2xl overflow-hidden bg-black/40 backdrop-blur-md animate-fade-in shadow-2xl">
+    <div className="flex flex-col h-full space-y-4 border border-white/10 rounded-2xl overflow-hidden bg-black/40 backdrop-blur-md animate-fade-in shadow-2xl">
       {/* Header */}
-      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 shadow-glow-sm">
             {user?.avatar ? (
@@ -226,7 +229,7 @@ export function DriveExplorer() {
       </div>
 
       {/* Navigation Bar */}
-      <div className="px-4 py-3 bg-black/20 border-b border-white/5 flex items-center gap-2">
+      <div className="px-4 py-3 bg-black/20 border-b border-white/5 flex items-center gap-2 shrink-0">
         <Button
           variant="secondary"
           size="icon"
@@ -269,137 +272,142 @@ export function DriveExplorer() {
       </div>
 
       {/* File List */}
-      <ScrollArea className="h-[450px]">
-        <div className="p-2 space-y-1">
-          {loadingFiles ? (
-            Array(6)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3">
-                  <Skeleton className="h-10 w-10 rounded-lg" />
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-4 w-1/3" />
-                    <Skeleton className="h-3 w-1/4" />
+      <div className="flex-1 min-h-0">
+        <ScrollArea className="h-full">
+          <div className="p-2 space-y-1">
+            {loadingFiles ? (
+              Array(6)
+                .fill(0)
+                .map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-3 w-1/4" />
+                    </div>
                   </div>
-                </div>
-              ))
-          ) : files.length > 0 ? (
-            files.map((file) => {
-              const isFolder =
-                file.mimeType === 'application/vnd.google-apps.folder'
-              const isProcessing = importingIds.has(file.id)
+                ))
+            ) : files.length > 0 ? (
+              files.map((file) => {
+                const isFolder =
+                  file.mimeType === 'application/vnd.google-apps.folder'
+                const isProcessing =
+                  importingIds.has(file.id) ||
+                  downloadProgress[`gdrive-${file.id}`] !== undefined
 
-              return (
-                <div
-                  key={file.id}
-                  className={cn(
-                    'flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer border border-transparent group',
-                    isFolder
-                      ? 'hover:bg-blue-500/10 hover:border-blue-500/20'
-                      : 'hover:bg-white/5 hover:border-white/10',
-                  )}
-                  onClick={() => {
-                    if (isFolder) navigateToFolder(file)
-                  }}
-                >
+                return (
                   <div
+                    key={file.id}
                     className={cn(
-                      'h-10 w-10 flex items-center justify-center rounded-lg shadow-sm shrink-0 transition-transform group-hover:scale-105',
+                      'flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer border border-transparent group',
                       isFolder
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-orange-500/20 text-orange-400',
+                        ? 'hover:bg-blue-500/10 hover:border-blue-500/20'
+                        : 'hover:bg-white/5 hover:border-white/10',
                     )}
+                    onClick={() => {
+                      if (isFolder) navigateToFolder(file)
+                    }}
                   >
-                    {isFolder ? (
-                      <Folder className="w-5 h-5 fill-current/30" />
-                    ) : (
-                      <Music className="w-5 h-5" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p
+                    <div
                       className={cn(
-                        'text-sm font-medium truncate',
-                        isFolder ? 'text-blue-100' : 'text-zinc-200',
+                        'h-10 w-10 flex items-center justify-center rounded-lg shadow-sm shrink-0 transition-transform group-hover:scale-105',
+                        isFolder
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-orange-500/20 text-orange-400',
                       )}
                     >
-                      {file.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {file.size
-                        ? (parseInt(file.size) / 1024 / 1024).toFixed(1) + ' MB'
-                        : isFolder
-                          ? 'Pasta'
-                          : ''}
-                    </p>
-                  </div>
+                      {isFolder ? (
+                        <Folder className="w-5 h-5 fill-current/30" />
+                      ) : (
+                        <Music className="w-5 h-5" />
+                      )}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isFolder ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                    <div className="flex-1 min-w-0">
+                      <p
                         className={cn(
-                          'gap-2 h-8 text-xs',
-                          isProcessing && 'text-primary bg-primary/10',
+                          'text-sm font-medium truncate',
+                          isFolder ? 'text-blue-100' : 'text-zinc-200',
                         )}
-                        onClick={(e) => handleSyncFolder(e, file)}
-                        disabled={isSyncing || isProcessing}
                       >
-                        {isProcessing ? (
-                          <>
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                            Syncing
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="w-3 h-3" /> Sync
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className={cn(
-                          'gap-2 h-8 text-xs shadow-sm',
-                          isProcessing
-                            ? 'bg-green-500/20 text-green-500 border-green-500/30'
-                            : 'hover:bg-primary hover:text-black',
-                        )}
-                        onClick={(e) => handleImportFile(e, file)}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <>
-                            <RefreshCw className="w-3 h-3 animate-spin" />{' '}
-                            Baixando...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-3 h-3" /> Importar
-                          </>
-                        )}
-                      </Button>
-                    )}
+                        {file.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {file.size
+                          ? (parseInt(file.size) / 1024 / 1024).toFixed(1) +
+                            ' MB'
+                          : isFolder
+                            ? 'Pasta'
+                            : ''}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isFolder ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            'gap-2 h-8 text-xs',
+                            isProcessing && 'text-primary bg-primary/10',
+                          )}
+                          onClick={(e) => handleSyncFolder(e, file)}
+                          disabled={isSyncing || isProcessing}
+                        >
+                          {isProcessing ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              Syncing
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3 h-3" /> Sync
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className={cn(
+                            'gap-2 h-8 text-xs shadow-sm',
+                            isProcessing
+                              ? 'bg-green-500/20 text-green-500 border-green-500/30'
+                              : 'hover:bg-primary hover:text-black',
+                          )}
+                          onClick={(e) => handleImportFile(e, file)}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />{' '}
+                              Baixando...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-3 h-3" /> Importar
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                )
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground h-full">
+                <div className="p-4 bg-white/5 rounded-full mb-3">
+                  <Folder className="w-8 h-8 opacity-30" />
                 </div>
-              )
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <div className="p-4 bg-white/5 rounded-full mb-3">
-                <Folder className="w-8 h-8 opacity-30" />
+                <p>Esta pasta está vazia</p>
               </div>
-              <p>Esta pasta está vazia</p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
 
-      <div className="p-3 bg-primary/5 border-t border-white/5 text-[10px] text-center text-primary/70 font-medium">
+      <div className="p-3 bg-primary/5 border-t border-white/5 text-[10px] text-center text-primary/70 font-medium shrink-0">
         Arquivos de áudio importados serão baixados automaticamente para uso
         offline.
       </div>

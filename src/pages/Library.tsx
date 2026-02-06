@@ -19,13 +19,14 @@ import {
   WifiOff,
   Wifi,
   CloudDownload,
+  Download,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
-import { saveTrack, deleteTrack } from '@/lib/storage'
+import { deleteTrack } from '@/lib/storage'
 import { FolderSidebar } from '@/components/library/folder-sidebar'
 import { EditTrackDialog } from '@/components/library/edit-track-dialog'
 import { CreatePlaylistDialog } from '@/components/library/create-playlist-dialog'
-import { ImportStreamDialog } from '@/components/library/import-stream-dialog'
+import { ImportMusicDialog } from '@/components/library/import-music-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
@@ -61,7 +62,6 @@ export default function Library() {
     albums: string[]
   }>({ genres: [], composers: [], albums: [] })
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const libraryTracks = library.filter((track) => {
@@ -101,58 +101,6 @@ export default function Library() {
     )
   }
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
-
-    let importedCount = 0
-    const failedFiles = []
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      try {
-        const id = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        const fileName = file.name.replace(/\.[^/.]+$/, '')
-        const parts = fileName.split('-')
-        const title = parts.length > 1 ? parts[1].trim() : fileName
-        const composer =
-          parts.length > 1 ? parts[0].trim() : 'Artista Desconhecido'
-
-        await saveTrack({
-          id,
-          title,
-          composer,
-          file,
-          duration: '0:00', // You might want to get actual duration
-          addedAt: Date.now(),
-          degree: 'Geral',
-          ritual: 'Livre',
-          folderId: currentFolderId || undefined,
-          offlineAvailable: true,
-        })
-        importedCount++
-      } catch (e) {
-        console.error('Error saving file', file.name, e)
-        failedFiles.push(file.name)
-      }
-    }
-
-    if (importedCount > 0) {
-      toast({
-        title: 'Importação Concluída',
-        description: `${importedCount} arquivos adicionados.`,
-      })
-      refreshLibrary()
-    }
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
   const handleDelete = async (id: string) => {
     await deleteTrack(id)
     toast({
@@ -164,7 +112,6 @@ export default function Library() {
 
   const handleBulkDelete = async () => {
     for (const id of selectedItems) {
-      // Allow deleting any track ID prefix
       await deleteTrack(id)
     }
     toast({
@@ -242,19 +189,12 @@ export default function Library() {
               {isOfflineMode ? 'Modo Offline' : 'Online'}
             </Button>
 
-            <Link to="/settings">
-              <Button
-                variant="outline"
-                className="shadow-sm gap-2 border-white/10 hover:border-white/30"
-              >
-                <img
-                  src="https://img.usecurling.com/i?q=google&shape=fill"
-                  className="w-4 h-4"
-                  alt="Drive"
-                />
-                <span className="hidden sm:inline">Google Drive</span>
-              </Button>
-            </Link>
+            <Button
+              className="gap-2 bg-primary text-black hover:bg-white transition-colors shadow-lg shadow-primary/20"
+              onClick={() => setIsImportDialogOpen(true)}
+            >
+              <Download className="w-4 h-4" /> Import Music
+            </Button>
 
             {currentFolderId && (
               <Button
@@ -267,24 +207,13 @@ export default function Library() {
             )}
 
             <div className="flex gap-1">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                multiple
-                accept=".mp3,audio/*"
-                onChange={handleFileChange}
-              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
-                    <Plus className="w-4 h-4" /> Adicionar
+                    <Plus className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleImportClick}>
-                    <FolderInput className="w-4 h-4 mr-2" /> Importar Local
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setIsPlaylistDialogOpen(true)}
                   >
@@ -407,8 +336,8 @@ export default function Library() {
                         Nenhum arquivo encontrado
                       </p>
                       <p className="text-sm opacity-60">
-                        Tente importar do Google Drive ou adicionar arquivos
-                        locais.
+                        Clique em "Import Music" para adicionar músicas do
+                        Drive, Local ou USB.
                       </p>
                     </div>
                   </div>
@@ -474,7 +403,7 @@ export default function Library() {
         onClose={() => setIsPlaylistDialogOpen(false)}
         onCreate={createPlaylist}
       />
-      <ImportStreamDialog
+      <ImportMusicDialog
         isOpen={isImportDialogOpen}
         onClose={() => setIsImportDialogOpen(false)}
       />

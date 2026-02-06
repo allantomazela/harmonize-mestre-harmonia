@@ -61,6 +61,7 @@ export interface Track {
   cues?: number[]
   trimStart?: number
   trimEnd?: number
+  size?: number
 }
 
 export type AcousticEnvironment = 'none' | 'temple' | 'cathedral' | 'small-room'
@@ -108,8 +109,8 @@ interface AudioPlayerContextType {
   fadeCurve: FadeCurve
   isLoading: boolean
   isSyncing: boolean
-  syncStatus: SyncStatus // New
-  lastSyncedAt: number | null // New
+  syncStatus: SyncStatus
+  lastSyncedAt: number | null
   isAutoPlay: boolean
   isOfflineMode: boolean
   isCorsRestricted: boolean
@@ -164,6 +165,7 @@ interface AudioPlayerContextType {
   removeTrackFromOffline: (track: Track) => Promise<void>
   toggleOfflineMode: () => void
   exportPlaylist: (tracks: Track[], title: string) => Promise<void>
+  importLocalFiles: (files: FileList) => Promise<void>
 
   // Presets
   loadPreset: (preset: EffectPreset) => void
@@ -348,7 +350,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       const cloudData = await fetchCloudData()
       if (cloudData) {
         if (cloudData.playlists) setPlaylists(cloudData.playlists)
-        // Merge queue logic could be complex, for now we assume local session priority or restore if empty
         if (queue.length === 0 && cloudData.queue) setQueue(cloudData.queue)
 
         if (cloudData.settings) {
@@ -426,9 +427,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       setLibrary(allTracks)
       setFolders(loadedFolders)
-
-      // Merge local DB playlists with potential cloud state if needed
-      // For now, we rely on local DB as source of truth which syncs to cloud
       setPlaylists(loadedPlaylists)
       setPresets(loadedPresets)
     } catch (error) {
@@ -553,8 +551,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       gainNodeRef.current = gain
 
       // --- Connect Graph ---
-      // Source -> Distortion -> BassBoost -> DelayChain -> ReverbChain -> Compressor -> Analyser -> Gain -> Dest
-
       source.connect(distortion)
       distortion.connect(bassBoost)
 
@@ -1273,6 +1269,87 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const importLocalFiles = async (files: FileList) => {
+    if (!files || files.length === 0) return
+
+    let importedCount = 0
+    const failedFiles: string[] = []
+
+    // Show initial toast
+    toast({
+      title: 'Importando...',
+      description: `Processando ${files.length} arquivos.`,
+    })
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+
+      // Filter for audio files
+      if (!file.type.startsWith('audio/')) {
+        continue
+      }
+
+      // Update progress for UX
+      const progress = Math.round(((i + 1) / files.length) * 100)
+      setDownloadProgress((prev) => ({
+        ...prev,
+        ['importing-local']: progress,
+      }))
+
+      try {
+        const id = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const fileName = file.name.replace(/\.[^/.]+$/, '')
+        const parts = fileName.split('-')
+        const title = parts.length > 1 ? parts[1].trim() : fileName
+        const composer =
+          parts.length > 1 ? parts[0].trim() : 'Artista Desconhecido'
+
+        await saveTrack({
+          id,
+          title,
+          composer,
+          file,
+          duration: '0:00', // Actual duration requires parsing audio buffer, simplified here
+          addedAt: Date.now(),
+          updatedAt: Date.now(),
+          size: file.size,
+          degree: 'Geral',
+          ritual: 'Livre',
+          folderId: undefined, // Or selected folder
+          offlineAvailable: true,
+          isLocal: true,
+        })
+        importedCount++
+      } catch (e) {
+        console.error('Error saving file', file.name, e)
+        failedFiles.push(file.name)
+      }
+    }
+
+    // Cleanup progress
+    setDownloadProgress((prev) => {
+      const next = { ...prev }
+      delete next['importing-local']
+      return next
+    })
+
+    if (importedCount > 0) {
+      toast({
+        title: 'Importação Concluída',
+        description: `${importedCount} arquivos adicionados e disponíveis offline.`,
+      })
+      await refreshLibrary()
+    }
+
+    if (failedFiles.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Erros na Importação',
+        description: `Falha ao importar ${failedFiles.length} arquivos.`,
+      })
+    }
+  }
+
   const toggleCue = (track: Track) => {
     if (cueTrack?.id === track.id) {
       setIsCuePlaying(!isCuePlaying)
@@ -1330,8 +1407,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         fadeCurve,
         isLoading,
         isSyncing,
-        syncStatus, // New
-        lastSyncedAt, // New
+        syncStatus,
+        lastSyncedAt,
         isAutoPlay,
         isOfflineMode,
         isCorsRestricted,
@@ -1378,6 +1455,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         removeTrackFromOffline,
         toggleOfflineMode,
         exportPlaylist,
+        importLocalFiles,
         loadPreset,
         saveCurrentPreset,
         deleteEffectPreset,
