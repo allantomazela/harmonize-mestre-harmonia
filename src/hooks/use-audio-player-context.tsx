@@ -879,7 +879,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const addCuePoint = async () => {}
   const setTrim = async () => {}
   const setTrackVolume = () => {}
-  const setAcousticEnvironment = () => {}
+  // Removed conflicting setAcousticEnvironment declaration here as it is already declared by useState
   const setEffectParam = (e: any, p: any, v: number) =>
     setEffects((prev) => ({ ...prev, [e]: { ...prev[e as any], [p]: v } }))
   const createFolder = async () => {}
