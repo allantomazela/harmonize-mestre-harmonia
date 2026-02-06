@@ -25,6 +25,10 @@ export interface GDriveFile {
   modifiedTime?: string
 }
 
+export const hasGoogleCredentials = () => {
+  return !!CLIENT_ID && !!API_KEY
+}
+
 // Helper to check if a script is already in the DOM
 const isScriptLoaded = (src: string) => {
   return !!document.querySelector(`script[src="${src}"]`)
@@ -34,6 +38,11 @@ export const loadGoogleScripts = (
   onGapiLoaded: () => void,
   onGisLoaded: () => void,
 ) => {
+  if (!hasGoogleCredentials()) {
+    console.warn('Google Drive credentials missing. Skipping script load.')
+    return
+  }
+
   // GAPI Script
   const gapiSrc = 'https://apis.google.com/js/api.js'
   if (typeof window.gapi !== 'undefined') {
@@ -47,9 +56,7 @@ export const loadGoogleScripts = (
     script1.onerror = () => console.error('Failed to load GAPI script')
     document.body.appendChild(script1)
   } else {
-    // Script exists but might not be loaded yet, try to hook into onload if possible or wait
-    // For simplicity, we assume if it exists it will trigger its onload or we rely on the caller to retry if needed
-    // But to be safe for re-entry:
+    // Script exists but might not be loaded yet
     const existingScript = document.querySelector(
       `script[src="${gapiSrc}"]`,
     ) as HTMLScriptElement
@@ -59,8 +66,6 @@ export const loadGoogleScripts = (
         if (originalOnLoad) (originalOnLoad as any)(e)
         onGapiLoaded()
       }
-      // If already loaded (readyState check not standard on all browsers for script tags), we might miss it
-      // but window.gapi check handles the "already loaded" case.
     }
   }
 
@@ -91,9 +96,8 @@ export const loadGoogleScripts = (
 }
 
 export const initializeGapiClient = async () => {
-  if (!API_KEY) {
-    console.warn('VITE_GOOGLE_API_KEY is missing.')
-    throw new Error('API Key is missing configuration')
+  if (!hasGoogleCredentials()) {
+    throw new Error('Google credentials not configured')
   }
 
   if (typeof window.gapi === 'undefined') {
@@ -130,7 +134,7 @@ export const initializeGapiClient = async () => {
 }
 
 export const initializeTokenClient = (callback: (response: any) => void) => {
-  if (!CLIENT_ID) {
+  if (!hasGoogleCredentials()) {
     console.warn('VITE_GOOGLE_CLIENT_ID is missing.')
     return
   }
@@ -162,6 +166,11 @@ export const initializeTokenClient = (callback: (response: any) => void) => {
 }
 
 export const handleAuthClick = () => {
+  if (!hasGoogleCredentials()) {
+    console.error('Missing credentials')
+    return
+  }
+
   if (!tokenClient) {
     console.error('Token client not initialized. Check Client ID.')
     return

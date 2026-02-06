@@ -18,15 +18,18 @@ import {
   Music,
   AlertCircle,
   Loader2,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { saveTrack } from '@/lib/storage'
 import { toast } from '@/hooks/use-toast'
+import { Link } from 'react-router-dom'
 
 export function DriveExplorer() {
   const {
     isAuthenticated,
+    isConfigured,
     login,
     logout,
     user,
@@ -51,7 +54,7 @@ export function DriveExplorer() {
 
   // Load files when path changes
   useEffect(() => {
-    if (isAuthenticated && !error) {
+    if (isAuthenticated && !error && isConfigured) {
       setLoadingFiles(true)
       const currentFolder = currentPath[currentPath.length - 1]
       listFiles(currentFolder?.id || 'root').then((data) => {
@@ -59,7 +62,7 @@ export function DriveExplorer() {
         setLoadingFiles(false)
       })
     }
-  }, [isAuthenticated, currentPath, listFiles, error])
+  }, [isAuthenticated, currentPath, listFiles, error, isConfigured])
 
   const handleSyncFolder = async (e: React.MouseEvent, folder: GDriveFile) => {
     e.stopPropagation()
@@ -136,7 +139,7 @@ export function DriveExplorer() {
     }
   }
 
-  if (error) {
+  if (!isConfigured || error) {
     return (
       <div className="flex flex-col items-center justify-center p-8 border border-destructive/30 rounded-2xl bg-destructive/10 space-y-4 animate-fade-in h-full">
         <AlertCircle className="w-12 h-12 text-destructive" />
@@ -145,10 +148,10 @@ export function DriveExplorer() {
             Erro de Configuração
           </h3>
           <p className="text-sm text-destructive-foreground max-w-sm">
-            {error}
+            {error || 'As chaves de API do Google não foram encontradas.'}
           </p>
           <p className="text-xs text-muted-foreground">
-            Verifique as chaves de API no arquivo .env
+            Adicione VITE_GOOGLE_CLIENT_ID e VITE_GOOGLE_API_KEY ao arquivo .env
           </p>
         </div>
       </div>

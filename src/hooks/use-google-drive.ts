@@ -7,6 +7,7 @@ import {
   handleSignOut,
   listDriveFiles,
   scanFolderForAudio,
+  hasGoogleCredentials,
   GDriveFile,
 } from '@/lib/google-drive'
 import { saveTrack, getAllTracks, LocalTrack } from '@/lib/storage'
@@ -41,6 +42,7 @@ const parseMetadataFromFilename = (filename: string) => {
 export function useGoogleDrive() {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isConfigured, setIsConfigured] = useState(true)
   const [user, setUser] = useState<GoogleUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentPath, setCurrentPath] = useState<GDriveFile[]>([])
@@ -52,6 +54,13 @@ export function useGoogleDrive() {
   // Load Scripts on Mount
   useEffect(() => {
     let isMounted = true
+
+    // Early validation of credentials
+    if (!hasGoogleCredentials()) {
+      setError('VITE_GOOGLE_CLIENT_ID ou VITE_GOOGLE_API_KEY ausentes.')
+      setIsConfigured(false)
+      return
+    }
 
     loadGoogleScripts(
       async () => {
@@ -107,11 +116,11 @@ export function useGoogleDrive() {
   }
 
   const login = () => {
-    if (error) {
+    if (!isConfigured || error) {
       toast({
         variant: 'destructive',
         title: 'Erro de Configuração',
-        description: error,
+        description: 'Credenciais do Google Drive não configuradas.',
       })
       return
     }
@@ -139,7 +148,7 @@ export function useGoogleDrive() {
 
   const listFiles = useCallback(
     async (folderId: string = 'root') => {
-      if (error) return []
+      if (error || !isConfigured) return []
       setIsLoading(true)
       try {
         const files = await listDriveFiles(folderId)
@@ -156,7 +165,7 @@ export function useGoogleDrive() {
         return []
       }
     },
-    [toast, error],
+    [toast, error, isConfigured],
   )
 
   const navigateToFolder = (folder: GDriveFile | null) => {
@@ -174,7 +183,7 @@ export function useGoogleDrive() {
 
   const syncFolder = useCallback(
     async (folderId: string, folderName: string) => {
-      if (error) {
+      if (error || !isConfigured) {
         toast({
           variant: 'destructive',
           title: 'Erro',
@@ -289,11 +298,12 @@ export function useGoogleDrive() {
         setIsSyncing(false)
       }
     },
-    [refreshLibrary, toast, setIsSyncing, error],
+    [refreshLibrary, toast, setIsSyncing, error, isConfigured],
   )
 
   return {
     isAuthenticated,
+    isConfigured,
     user,
     isLoading,
     login,

@@ -14,11 +14,19 @@ import {
   HardDrive,
   ChevronRight,
   Loader2,
+  AlertCircle,
 } from 'lucide-react'
 import { DriveExplorer } from '@/components/settings/drive-explorer'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useGoogleDrive } from '@/hooks/use-google-drive'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ImportMusicDialogProps {
   isOpen: boolean
@@ -31,10 +39,13 @@ export function ImportMusicDialog({ isOpen, onClose }: ImportMusicDialogProps) {
   const [selectedSource, setSelectedSource] = useState<ImportSource>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { importLocalFiles, downloadProgress } = useAudioPlayer()
+  const { isConfigured, error: driveError } = useGoogleDrive()
 
   const isImporting = downloadProgress['importing-local'] !== undefined
 
   const handleSourceSelect = (source: ImportSource) => {
+    if (!isConfigured && source === 'drive') return
+
     if (source === 'local' || source === 'usb') {
       // Trigger file input
       if (fileInputRef.current) {
@@ -63,28 +74,61 @@ export function ImportMusicDialog({ isOpen, onClose }: ImportMusicDialogProps) {
     title: string,
     description: string,
     colorClass: string,
-  ) => (
-    <button
-      onClick={() => handleSourceSelect(id)}
-      className={cn(
-        'flex flex-col items-center justify-center p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group relative overflow-hidden',
-        'hover:shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:border-white/20',
-      )}
-    >
-      <div
+    disabled: boolean = false,
+  ) => {
+    const content = (
+      <button
+        onClick={() => !disabled && handleSourceSelect(id)}
+        disabled={disabled}
         className={cn(
-          'p-4 rounded-full bg-black/40 mb-4 transition-transform group-hover:scale-110 shadow-lg',
-          colorClass,
+          'flex flex-col items-center justify-center p-6 rounded-xl border bg-white/5 transition-all group relative overflow-hidden w-full text-left',
+          disabled
+            ? 'opacity-50 cursor-not-allowed border-white/5'
+            : 'border-white/10 hover:bg-white/10 hover:shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:border-white/20',
         )}
       >
-        {icon}
-      </div>
-      <h3 className="text-lg font-bold mb-1">{title}</h3>
-      <p className="text-xs text-muted-foreground text-center">{description}</p>
+        <div
+          className={cn(
+            'p-4 rounded-full bg-black/40 mb-4 transition-transform shadow-lg relative',
+            !disabled && 'group-hover:scale-110',
+            colorClass,
+          )}
+        >
+          {icon}
+          {disabled && (
+            <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 border border-black">
+              <AlertCircle className="w-3 h-3" />
+            </div>
+          )}
+        </div>
+        <h3 className="text-lg font-bold mb-1">{title}</h3>
+        <p className="text-xs text-muted-foreground text-center">
+          {description}
+        </p>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-    </button>
-  )
+        {!disabled && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        )}
+      </button>
+    )
+
+    if (disabled) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-full">{content}</div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Service Unavailable: Missing API Keys</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+
+    return content
+  }
 
   return (
     <Dialog
@@ -142,8 +186,13 @@ export function ImportMusicDialog({ isOpen, onClose }: ImportMusicDialogProps) {
                 'drive',
                 <UploadCloud className="w-8 h-8" />,
                 'Google Drive',
-                'Connect account to download files.',
-                'text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]',
+                isConfigured
+                  ? 'Connect account to download files.'
+                  : 'Configuration Missing',
+                isConfigured
+                  ? 'text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                  : 'text-muted-foreground',
+                !isConfigured,
               )}
               {renderSourceCard(
                 'local',
