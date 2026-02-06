@@ -55,10 +55,10 @@ export default function Player() {
 
   return (
     <div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col overflow-hidden font-sans">
-      {/* Cinematic Background */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-30%] left-[-10%] w-[70%] h-[70%] bg-primary/10 rounded-full blur-[150px] animate-pulse-glow" />
-        <div className="absolute bottom-[-30%] right-[-10%] w-[60%] h-[60%] bg-blue-500/5 rounded-full blur-[150px]" />
+      {/* Cinematic Background - Optimized for Performance to prevent timeouts */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transform-gpu">
+        <div className="absolute top-[-30%] left-[-10%] w-[70%] h-[70%] bg-primary/10 rounded-full blur-[100px] animate-pulse-glow will-change-transform" />
+        <div className="absolute bottom-[-30%] right-[-10%] w-[60%] h-[60%] bg-blue-500/5 rounded-full blur-[100px] will-change-transform" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
       </div>
 

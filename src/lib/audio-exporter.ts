@@ -23,7 +23,15 @@ export const renderPlaylistMix = async (
         const arrayBuffer = await track.file.arrayBuffer()
         buffer = await tempCtx.decodeAudioData(arrayBuffer)
       } else if (track.url) {
-        const response = await fetch(track.url)
+        // Robust fetch with timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+        const response = await fetch(track.url, {
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
         const arrayBuffer = await response.arrayBuffer()
         buffer = await tempCtx.decodeAudioData(arrayBuffer)
       } else {

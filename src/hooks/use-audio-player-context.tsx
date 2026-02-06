@@ -289,8 +289,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const reverbDryGainRef = useRef<GainNode | null>(null)
   const reverbMergeRef = useRef<GainNode | null>(null)
   const masterGainRef = useRef<GainNode | null>(null)
-  const retryCountRef = useRef<number>(0)
-  const objectUrlRef = useRef<string | null>(null) // We only track one object URL at a time for simplicity, ideally map
 
   // Persistence Effects
   useEffect(
@@ -529,7 +527,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
               queue[currentIndex + 1],
               currentIndex + 1,
               safeDuration,
-            )
+            ).catch((err) => console.error('Auto crossfade error', err))
           }
         }
       }
@@ -655,76 +653,87 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       nextIndex: number,
       durationVal: number = MANUAL_FADE_DURATION,
     ) => {
-      if (isTransitioningRef.current || !audioContextRef.current) return
-      setIsTransitioning(true)
-      isTransitioningRef.current = true
-
-      // Determine players
-      const activePlayer =
-        activePlayerRef.current === 'A' ? audioRefA.current : audioRefB.current
-      const nextPlayerRef =
-        activePlayerRef.current === 'A' ? audioRefB : audioRefA
-      const nextPlayer = nextPlayerRef.current
-      const nextPlayerName = activePlayerRef.current === 'A' ? 'B' : 'A'
-
-      if (!activePlayer || !nextPlayer) return
-
-      // Load Next Track
-      const src = await resolveTrackSource(nextTrack)
-      if (!src) {
-        setIsTransitioning(false)
-        isTransitioningRef.current = false
-        return
-      }
-
-      nextPlayer.src = src
-      nextPlayer.load()
-      if (nextTrack.trimStart) nextPlayer.currentTime = nextTrack.trimStart
-
-      // Start Playing Next (Silent)
-      nextPlayer.volume = 0
       try {
-        await nextPlayer.play()
-      } catch (e) {
-        console.error('Play failed during crossfade', e)
-        setIsTransitioning(false)
-        isTransitioningRef.current = false
-        return
-      }
+        if (isTransitioningRef.current || !audioContextRef.current) return
+        setIsTransitioning(true)
+        isTransitioningRef.current = true
 
-      // Perform Fades
-      const targetVol = getEffectiveVolume(nextTrack.id)
+        // Determine players
+        const activePlayer =
+          activePlayerRef.current === 'A'
+            ? audioRefA.current
+            : audioRefB.current
+        const nextPlayerRef =
+          activePlayerRef.current === 'A' ? audioRefB : audioRefA
+        const nextPlayer = nextPlayerRef.current
+        const nextPlayerName = activePlayerRef.current === 'A' ? 'B' : 'A'
 
-      // Fade In Next
-      performElementFade(
-        nextPlayer,
-        targetVol,
-        durationVal,
-        fadeCurve,
-        activePlayerRef.current === 'A' ? fadeIntervalRefB : fadeIntervalRefA,
-      )
+        if (!activePlayer || !nextPlayer) return
 
-      // Fade Out Active
-      performElementFade(
-        activePlayer,
-        0,
-        durationVal,
-        fadeCurve,
-        activePlayerRef.current === 'A' ? fadeIntervalRefA : fadeIntervalRefB,
-        () => {
-          // Cleanup Old
-          activePlayer.pause()
-          activePlayer.currentTime = 0
-          activePlayer.removeAttribute('src') // Free resources
+        // Load Next Track
+        const src = await resolveTrackSource(nextTrack)
+        if (!src) {
           setIsTransitioning(false)
           isTransitioningRef.current = false
-        },
-      )
+          return
+        }
 
-      // Switch State Immediately for UI
-      activePlayerRef.current = nextPlayerName
-      setCurrentIndex(nextIndex)
-      setIsPlaying(true)
+        nextPlayer.src = src
+        nextPlayer.load()
+        if (nextTrack.trimStart) nextPlayer.currentTime = nextTrack.trimStart
+
+        // Start Playing Next (Silent)
+        nextPlayer.volume = 0
+        try {
+          if (audioContextRef.current?.state === 'suspended') {
+            await audioContextRef.current.resume()
+          }
+          await nextPlayer.play()
+        } catch (e) {
+          console.error('Play failed during crossfade', e)
+          setIsTransitioning(false)
+          isTransitioningRef.current = false
+          return
+        }
+
+        // Perform Fades
+        const targetVol = getEffectiveVolume(nextTrack.id)
+
+        // Fade In Next
+        performElementFade(
+          nextPlayer,
+          targetVol,
+          durationVal,
+          fadeCurve,
+          activePlayerRef.current === 'A' ? fadeIntervalRefB : fadeIntervalRefA,
+        )
+
+        // Fade Out Active
+        performElementFade(
+          activePlayer,
+          0,
+          durationVal,
+          fadeCurve,
+          activePlayerRef.current === 'A' ? fadeIntervalRefA : fadeIntervalRefB,
+          () => {
+            // Cleanup Old
+            activePlayer.pause()
+            activePlayer.currentTime = 0
+            activePlayer.removeAttribute('src') // Free resources
+            setIsTransitioning(false)
+            isTransitioningRef.current = false
+          },
+        )
+
+        // Switch State Immediately for UI
+        activePlayerRef.current = nextPlayerName
+        setCurrentIndex(nextIndex)
+        setIsPlaying(true)
+      } catch (err) {
+        console.error('Crossfade failed', err)
+        setIsTransitioning(false)
+        isTransitioningRef.current = false
+      }
     },
     [getEffectiveVolume, fadeCurve, performElementFade],
   )
@@ -735,60 +744,70 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       index: number,
       options: { manual?: boolean; forceInstant?: boolean } = {},
     ) => {
-      // If we are already playing something, and this is a manual change (e.g. click Next)
-      // We trigger a fast crossfade.
-      const activePlayer =
-        activePlayerRef.current === 'A' ? audioRefA.current : audioRefB.current
-
-      if (
-        isPlaying &&
-        !isTransitioningRef.current &&
-        !options.forceInstant &&
-        transitionType === 'fade' &&
-        activePlayer
-      ) {
-        // Trigger Crossfade
-        const durationVal = options.manual
-          ? MANUAL_FADE_DURATION
-          : crossfadeDuration
-        await triggerCrossfade(track, index, durationVal)
-        return
-      }
-
-      // Standard / Instant Load
-      const targetPlayer = activePlayer || audioRefA.current
-      if (!targetPlayer) return
-
-      // Stop any existing fade
-      if (isTransitioningRef.current) {
-        // Abort transition, hard reset
-        setIsTransitioning(false)
-        isTransitioningRef.current = false
-        if (audioRefA.current) {
-          audioRefA.current.pause()
-          audioRefA.current.volume = 0
-        }
-        if (audioRefB.current) {
-          audioRefB.current.pause()
-          audioRefB.current.volume = 0
-        }
-      }
-
-      const src = await resolveTrackSource(track)
-      if (!src) return
-
-      // Reset Active Player Logic (if we were B, stay B or reset to A? Let's just use current active)
-      targetPlayer.src = src
-      targetPlayer.load()
-      if (track.trimStart) targetPlayer.currentTime = track.trimStart
-      targetPlayer.volume = getEffectiveVolume(track.id)
-
       try {
-        await targetPlayer.play()
-        setIsPlaying(true)
-        setCurrentIndex(index)
-      } catch (e) {
-        console.error('Playback failed', e)
+        // If we are already playing something, and this is a manual change (e.g. click Next)
+        // We trigger a fast crossfade.
+        const activePlayer =
+          activePlayerRef.current === 'A'
+            ? audioRefA.current
+            : audioRefB.current
+
+        if (
+          isPlaying &&
+          !isTransitioningRef.current &&
+          !options.forceInstant &&
+          transitionType === 'fade' &&
+          activePlayer
+        ) {
+          // Trigger Crossfade
+          const durationVal = options.manual
+            ? MANUAL_FADE_DURATION
+            : crossfadeDuration
+          await triggerCrossfade(track, index, durationVal)
+          return
+        }
+
+        // Standard / Instant Load
+        const targetPlayer = activePlayer || audioRefA.current
+        if (!targetPlayer) return
+
+        // Stop any existing fade
+        if (isTransitioningRef.current) {
+          // Abort transition, hard reset
+          setIsTransitioning(false)
+          isTransitioningRef.current = false
+          if (audioRefA.current) {
+            audioRefA.current.pause()
+            audioRefA.current.volume = 0
+          }
+          if (audioRefB.current) {
+            audioRefB.current.pause()
+            audioRefB.current.volume = 0
+          }
+        }
+
+        const src = await resolveTrackSource(track)
+        if (!src) return
+
+        // Reset Active Player Logic (if we were B, stay B or reset to A? Let's just use current active)
+        targetPlayer.src = src
+        targetPlayer.load()
+        if (track.trimStart) targetPlayer.currentTime = track.trimStart
+        targetPlayer.volume = getEffectiveVolume(track.id)
+
+        try {
+          if (audioContextRef.current?.state === 'suspended') {
+            await audioContextRef.current.resume()
+          }
+          await targetPlayer.play()
+          setIsPlaying(true)
+          setCurrentIndex(index)
+        } catch (e) {
+          console.error('Playback failed', e)
+          setIsPlaying(false)
+        }
+      } catch (err) {
+        console.error('playTrack unhandled error', err)
         setIsPlaying(false)
       }
     },
@@ -820,16 +839,23 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       }
       setIsPlaying(false)
     } else {
+      // Resume Context if suspended
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch((e) => console.error(e))
+      }
+
       if (!activePlayer.src && queue[currentIndex]) {
-        playTrack(queue[currentIndex], currentIndex)
+        playTrack(queue[currentIndex], currentIndex).catch((e) =>
+          console.error(e),
+        )
       } else {
-        activePlayer.play()
+        activePlayer.play().catch((e) => console.error(e))
         if (isTransitioningRef.current) {
           const other =
             activePlayerRef.current === 'A'
               ? audioRefB.current
               : audioRefA.current
-          other?.play()
+          other?.play().catch((e) => console.error(e))
         }
         setIsPlaying(true)
       }
@@ -838,7 +864,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const playNext = useCallback(() => {
     if (currentIndex < queue.length - 1) {
-      playTrack(queue[currentIndex + 1], currentIndex + 1, { manual: true })
+      playTrack(queue[currentIndex + 1], currentIndex + 1, {
+        manual: true,
+      }).catch((e) => console.error(e))
     } else {
       setIsPlaying(false)
     }
@@ -846,7 +874,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const playPrev = useCallback(() => {
     if (currentIndex > 0) {
-      playTrack(queue[currentIndex - 1], currentIndex - 1, { manual: true })
+      playTrack(queue[currentIndex - 1], currentIndex - 1, {
+        manual: true,
+      }).catch((e) => console.error(e))
     }
   }, [queue, currentIndex, playTrack])
 
@@ -902,17 +932,22 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const loadPreset = () => {}
   const saveCurrentPreset = async () => {}
   const deleteEffectPreset = async () => {}
-  const skipToIndex = (i: number) => playTrack(queue[i], i, { manual: true })
+  const skipToIndex = (i: number) =>
+    playTrack(queue[i], i, { manual: true }).catch((e) => console.error(e))
   const addToQueue = (t: Track[]) => setQueue((q) => [...q, ...t])
   const replaceQueue = (t: Track[]) => {
     setQueue(t)
-    playTrack(t[0], 0, { forceInstant: true })
+    playTrack(t[0], 0, { forceInstant: true }).catch((e) => console.error(e))
   }
   const refreshLibrary = async () => {
-    const t = await getAllTracks()
-    setLibrary(t as any)
-    setFolders(await getFolders())
-    setPlaylists(await getPlaylists())
+    try {
+      const t = await getAllTracks()
+      setLibrary(t as any)
+      setFolders(await getFolders())
+      setPlaylists(await getPlaylists())
+    } catch (e) {
+      console.error('Refresh library error', e)
+    }
   }
   const reorderQueue = (f: number, t: number) => {}
   const removeFromQueue = (i: number) => {}

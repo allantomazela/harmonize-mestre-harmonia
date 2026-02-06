@@ -175,7 +175,11 @@ export const handleAuthClick = () => {
     console.error('Token client not initialized. Check Client ID.')
     return
   }
-  tokenClient.requestAccessToken({ prompt: 'consent' })
+  try {
+    tokenClient.requestAccessToken({ prompt: 'consent' })
+  } catch (e) {
+    console.error('Auth Request Error:', e)
+  }
 }
 
 export const handleSignOut = () => {
@@ -214,20 +218,33 @@ export const fetchDriveFileBlob = async (fileId: string): Promise<Blob> => {
   const token = window.gapi.client.getToken()?.access_token
   if (!token) throw new Error('No access token available')
 
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 45000) // 45s timeout to prevent hanging
+
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
       },
-    },
-  )
+    )
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file: ${response.statusText}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.statusText}`)
+    }
+
+    return await response.blob()
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Download timeout')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return await response.blob()
 }
 
 // Recursive function to find all audio files in a folder tree
@@ -238,24 +255,28 @@ export const scanFolderForAudio = async (
 
   const allAudio: GDriveFile[] = []
 
-  // List all files in the current folder
-  const response = await window.gapi.client.drive.files.list({
-    pageSize: 100,
-    fields:
-      'files(id, name, mimeType, size, durationMillis, createdTime, modifiedTime)',
-    q: `'${folderId}' in parents and (mimeType contains 'audio/' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`,
-  })
+  try {
+    // List all files in the current folder
+    const response = await window.gapi.client.drive.files.list({
+      pageSize: 100,
+      fields:
+        'files(id, name, mimeType, size, durationMillis, createdTime, modifiedTime)',
+      q: `'${folderId}' in parents and (mimeType contains 'audio/' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`,
+    })
 
-  const files = response.result.files as GDriveFile[]
+    const files = response.result.files as GDriveFile[]
 
-  for (const file of files) {
-    if (file.mimeType.includes('audio/')) {
-      allAudio.push(file)
-    } else if (file.mimeType === 'application/vnd.google-apps.folder') {
-      // Recursively scan subfolders
-      const subFiles = await scanFolderForAudio(file.id)
-      allAudio.push(...subFiles)
+    for (const file of files) {
+      if (file.mimeType.includes('audio/')) {
+        allAudio.push(file)
+      } else if (file.mimeType === 'application/vnd.google-apps.folder') {
+        // Recursively scan subfolders
+        const subFiles = await scanFolderForAudio(file.id)
+        allAudio.push(...subFiles)
+      }
     }
+  } catch (err) {
+    console.error('Error scanning folder:', err)
   }
 
   return allAudio
