@@ -870,6 +870,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const toggleAutoPlay = useCallback(() => {
+    setIsAutoPlay((prev) => !prev)
+  }, [])
+
   const currentTrack = queue[currentIndex]
 
   // Mock functions for unused but required context props (omitted deep logic for brevity as focus is audio)
