@@ -13,35 +13,45 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
-  ExternalLink,
+  HardDrive,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
 
 export function IntegrationsStatus() {
   const { isAuthenticated, user, login, logout, isLoading } = useGoogleDrive()
 
   return (
-    <Card className="border-border h-full">
+    <Card className="h-full border-primary/10 bg-card/50 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Cloud className="w-5 h-5 text-primary" /> Integrações
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <Cloud className="w-5 h-5" /> Integrações & Nuvem
         </CardTitle>
-        <CardDescription>Gerencie suas conexões externas.</CardDescription>
+        <CardDescription>
+          Gerencie suas conexões externas para sincronização.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {/* Google Drive Card */}
-        <div className="rounded-lg border border-border bg-secondary/10 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+        <div
+          className={cn(
+            'rounded-xl border p-5 transition-all duration-300',
+            isAuthenticated
+              ? 'border-green-500/30 bg-green-500/5 shadow-[0_0_15px_-5px_rgba(34,197,94,0.2)]'
+              : 'border-border bg-secondary/10',
+          )}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md p-2">
                 <img
                   src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg"
                   alt="Google Drive"
-                  className="w-6 h-6"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div>
-                <h4 className="font-semibold text-sm">Google Drive</h4>
+                <h4 className="font-bold text-base">Google Drive</h4>
                 <p className="text-xs text-muted-foreground">
                   Armazenamento em Nuvem
                 </p>
@@ -49,32 +59,33 @@ export function IntegrationsStatus() {
             </div>
             <Badge
               variant={isAuthenticated ? 'default' : 'secondary'}
-              className={
+              className={cn(
+                'text-xs px-2.5 py-0.5',
                 isAuthenticated
-                  ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
-                  : ''
-              }
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : '',
+              )}
             >
               {isAuthenticated ? 'Conectado' : 'Desconectado'}
             </Badge>
           </div>
 
           {isAuthenticated && user ? (
-            <div className="bg-background rounded-md p-3 mb-4 flex items-center gap-3 border border-border">
-              <Avatar className="h-8 w-8">
+            <div className="bg-background/80 rounded-lg p-4 mb-4 flex items-center gap-4 border border-border/50">
+              <Avatar className="h-10 w-10 border border-border">
                 <AvatarImage src={user.avatar} />
                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-sm font-semibold truncate">{user.name}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   {user.email}
                 </p>
               </div>
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
             </div>
           ) : (
-            <div className="bg-background rounded-md p-3 mb-4 flex items-center gap-3 border border-border border-dashed text-muted-foreground">
+            <div className="bg-background/50 rounded-lg p-4 mb-4 flex items-center gap-3 border border-dashed border-border text-muted-foreground justify-center">
               <XCircle className="w-4 h-4" />
               <p className="text-sm">Nenhuma conta vinculada</p>
             </div>
@@ -82,26 +93,39 @@ export function IntegrationsStatus() {
 
           <Button
             variant={isAuthenticated ? 'outline' : 'default'}
-            className="w-full"
+            className={cn(
+              'w-full font-semibold',
+              !isAuthenticated && 'bg-blue-600 hover:bg-blue-700 text-white',
+            )}
             onClick={isAuthenticated ? logout : login}
             disabled={isLoading}
           >
             {isLoading ? (
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
             ) : isAuthenticated ? (
-              'Desconectar'
+              'Desconectar Conta'
             ) : (
-              'Conectar Conta'
+              'Conectar Google Drive'
             )}
           </Button>
         </div>
 
-        {/* Placeholder for future integrations */}
-        <div className="rounded-lg border border-border border-dashed p-4 flex flex-col items-center justify-center text-center space-y-2 opacity-60">
-          <p className="text-sm font-medium">Mais Integrações em Breve</p>
-          <p className="text-xs text-muted-foreground">
-            Dropbox e OneDrive estão chegando.
-          </p>
+        {/* Future Integrations */}
+        <div className="grid grid-cols-2 gap-4 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+          <div className="border border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-secondary/5 cursor-not-allowed">
+            <Cloud className="w-8 h-8 text-blue-400" />
+            <span className="text-xs font-medium">OneDrive</span>
+            <Badge variant="outline" className="text-[10px] h-5">
+              Em Breve
+            </Badge>
+          </div>
+          <div className="border border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-secondary/5 cursor-not-allowed">
+            <HardDrive className="w-8 h-8 text-indigo-400" />
+            <span className="text-xs font-medium">Dropbox</span>
+            <Badge variant="outline" className="text-[10px] h-5">
+              Em Breve
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>
