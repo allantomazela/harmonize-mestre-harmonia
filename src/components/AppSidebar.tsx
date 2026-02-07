@@ -13,10 +13,28 @@ import {
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarPlayer } from '@/components/sidebar-player'
+import { useEffect, useState } from 'react'
 
 export function AppSidebar() {
   const location = useLocation()
   const isActive = (path: string) => location.pathname.startsWith(path)
+
+  const [user, setUser] = useState({
+    name: 'Ir. João Silva',
+    avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
+  })
+
+  // Simple hydration from local storage
+  useEffect(() => {
+    const saved = localStorage.getItem('harmonize_user_profile')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      setUser({
+        name: parsed.name,
+        avatar: parsed.avatar,
+      })
+    }
+  }, [])
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/dashboard' },
@@ -63,18 +81,21 @@ export function AppSidebar() {
       <SidebarPlayer />
 
       <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar>
-            <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1" />
-            <AvatarFallback>MH</AvatarFallback>
+        <Link
+          to="/profile"
+          className="flex items-center gap-3 mb-4 group cursor-pointer"
+        >
+          <Avatar className="group-hover:ring-2 ring-primary transition-all">
+            <AvatarImage src={user.avatar} />
+            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium truncate">Ir. João Silva</p>
-            <p className="text-xs text-muted-foreground truncate">
-              Loja União #123
+            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+              {user.name}
             </p>
+            <p className="text-xs text-muted-foreground truncate">Ver Perfil</p>
           </div>
-        </div>
+        </Link>
         <Link to="/login">
           <Button
             variant="outline"

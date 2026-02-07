@@ -1,12 +1,14 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import {
   Bell,
   ChevronRight,
-  HardDrive,
-  RefreshCw,
   Cloud,
   CloudOff,
   Check,
+  RefreshCw,
+  LogOut,
+  User,
+  Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,10 +20,33 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { useAudioPlayer } from '@/hooks/use-audio-player-context'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useEffect, useState } from 'react'
 
 export function TopHeader() {
   const location = useLocation()
   const { isSyncing, syncStatus, isOfflineMode } = useAudioPlayer()
+
+  // Read user profile from local storage to keep sync with Profile page
+  const [userAvatar, setUserAvatar] = useState(
+    'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
+  )
+
+  useEffect(() => {
+    const saved = localStorage.getItem('harmonize_user_profile')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed.avatar) setUserAvatar(parsed.avatar)
+    }
+  }, []) // Simplistic sync on mount
 
   const getBreadcrumbs = () => {
     const path = location.pathname
@@ -33,6 +58,8 @@ export function TopHeader() {
       playlists: 'Playlists',
       settings: 'Configurações',
       player: 'Player',
+      profile: 'Meu Perfil',
+      'ritual-creator': 'Gerador de Rituais',
     }
 
     return parts.map((part, index) => {
@@ -122,6 +149,48 @@ export function TopHeader() {
           <Bell className="w-5 h-5 text-muted-foreground" />
           <Badge className="absolute top-1 right-1 w-2 h-2 p-0 bg-primary border-none" />
         </Button>
+
+        {/* User Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+              <Avatar className="h-8 w-8 border border-border">
+                <AvatarImage src={userAvatar} alt="User" />
+                <AvatarFallback>U</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">Minha Conta</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  Mestre de Harmonia
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <Link to="/profile">
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Perfil</span>
+              </DropdownMenuItem>
+            </Link>
+            <Link to="/settings">
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configurações</span>
+              </DropdownMenuItem>
+            </Link>
+            <DropdownMenuSeparator />
+            <Link to="/login">
+              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </Link>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
