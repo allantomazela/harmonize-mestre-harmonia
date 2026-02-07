@@ -8,13 +8,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Cloud,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  HardDrive,
-} from 'lucide-react'
+import { Cloud, CheckCircle2, XCircle, RefreshCw } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +22,7 @@ export function IntegrationsStatus() {
           <Cloud className="w-5 h-5" /> Integrações & Nuvem
         </CardTitle>
         <CardDescription>
-          Gerencie suas conexões externas para sincronização.
+          Gerencie sua conexão com o Google Drive.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -108,24 +102,6 @@ export function IntegrationsStatus() {
               'Conectar Google Drive'
             )}
           </Button>
-        </div>
-
-        {/* Future Integrations */}
-        <div className="grid grid-cols-2 gap-4 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-          <div className="border border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-secondary/5 cursor-not-allowed">
-            <Cloud className="w-8 h-8 text-blue-400" />
-            <span className="text-xs font-medium">OneDrive</span>
-            <Badge variant="outline" className="text-[10px] h-5">
-              Em Breve
-            </Badge>
-          </div>
-          <div className="border border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-secondary/5 cursor-not-allowed">
-            <HardDrive className="w-8 h-8 text-indigo-400" />
-            <span className="text-xs font-medium">Dropbox</span>
-            <Badge variant="outline" className="text-[10px] h-5">
-              Em Breve
-            </Badge>
-          </div>
         </div>
       </CardContent>
     </Card>

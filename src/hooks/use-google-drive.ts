@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   loadGoogleScripts,
   initializeGapiClient,
@@ -20,9 +20,8 @@ export interface GoogleUser {
   avatar: string
 }
 
-// Helper to parse filename "Artist - Title.mp3"
 const parseMetadataFromFilename = (filename: string) => {
-  const cleanName = filename.replace(/\.[^/.]+$/, '') // Remove extension
+  const cleanName = filename.replace(/\.[^/.]+$/, '')
   const regex = /^(.+?)\s-\s(.+)$/
   const match = cleanName.match(regex)
 
@@ -48,74 +47,97 @@ export function useGoogleDrive() {
   const [currentPath, setCurrentPath] = useState<GDriveFile[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  // Use refs to prevent async state updates on unmounted component
+  const isMounted = useRef(false)
+
   const { refreshLibrary, setIsSyncing } = useAudioPlayer()
   const { toast } = useToast()
 
-  // Load Scripts on Mount
   useEffect(() => {
-    let isMounted = true
+    isMounted.current = true
 
-    // Early validation of credentials
+    // Check local storage for previous connection
+    const wasConnected = localStorage.getItem('gdrive_connected') === 'true'
+    if (wasConnected) {
+      setIsAuthenticated(true)
+    }
+
     if (!hasGoogleCredentials()) {
       setError('VITE_GOOGLE_CLIENT_ID ou VITE_GOOGLE_API_KEY ausentes.')
       setIsConfigured(false)
-      return
+      return () => {
+        isMounted.current = false
+      }
     }
 
-    loadGoogleScripts(
-      async () => {
-        if (!isMounted) return
-        // GAPI Loaded
-        try {
-          await initializeGapiClient()
-        } catch (err: any) {
-          console.error('GAPI Init Error', err)
-          if (isMounted)
-            setError(err.message || 'Failed to initialize Google API')
-        }
-      },
-      () => {
-        if (!isMounted) return
-        // GIS Loaded
-        try {
-          initializeTokenClient((response) => {
-            if (response && response.access_token) {
-              setIsAuthenticated(true)
-              fetchUserInfo()
+    const initScripts = async () => {
+      try {
+        loadGoogleScripts(
+          async () => {
+            if (!isMounted.current) return
+            try {
+              await initializeGapiClient()
+              if (wasConnected && isMounted.current) {
+                // If we were connected, try to fetch user info to confirm session
+                fetchUserInfo()
+              }
+            } catch (err: any) {
+              console.error('GAPI Init Error', err)
+              if (isMounted.current)
+                setError(err.message || 'Falha ao inicializar GAPI')
             }
-          })
-          setIsScriptLoaded(true)
-        } catch (err: any) {
-          console.error('GIS Init Error', err)
-          if (isMounted)
-            setError(err.message || 'Failed to initialize Identity Services')
-        }
-      },
-    )
+          },
+          () => {
+            if (!isMounted.current) return
+            try {
+              initializeTokenClient((response) => {
+                if (response && response.access_token && isMounted.current) {
+                  setIsAuthenticated(true)
+                  fetchUserInfo()
+                  localStorage.setItem('gdrive_connected', 'true')
+                }
+              })
+              if (isMounted.current) setIsScriptLoaded(true)
+            } catch (err: any) {
+              console.error('GIS Init Error', err)
+              if (isMounted.current)
+                setError(err.message || 'Falha ao inicializar GIS')
+            }
+          },
+        )
+      } catch (e) {
+        console.error('Script load error', e)
+      }
+    }
+
+    initScripts()
 
     return () => {
-      isMounted = false
+      isMounted.current = false
     }
   }, [])
 
   const fetchUserInfo = async () => {
+    if (!window.gapi?.client?.drive) return
+
     try {
       const response = await window.gapi.client.drive.about.get({
         fields: 'user',
       })
-      const driveUser = response.result.user
-      setUser({
-        name: driveUser.displayName,
-        email: driveUser.emailAddress,
-        avatar: driveUser.photoLink,
-      })
-      localStorage.setItem('gdrive_connected', 'true')
+      if (isMounted.current && response.result.user) {
+        const driveUser = response.result.user
+        setUser({
+          name: driveUser.displayName || 'Usuário Google',
+          email: driveUser.emailAddress || '',
+          avatar: driveUser.photoLink || '',
+        })
+      }
     } catch (e) {
       console.warn('Failed to fetch user info', e)
     }
   }
 
-  const login = () => {
+  const login = useCallback(() => {
     if (!isConfigured || error) {
       toast({
         variant: 'destructive',
@@ -126,25 +148,36 @@ export function useGoogleDrive() {
     }
     if (!isScriptLoaded) {
       toast({
-        variant: 'destructive',
-        title: 'Serviço Indisponível',
-        description: 'Aguardando carregamento dos scripts do Google.',
+        title: 'Inicializando...',
+        description: 'Aguarde o carregamento dos serviços do Google.',
       })
       return
     }
-    handleAuthClick()
-  }
 
-  const logout = () => {
+    try {
+      handleAuthClick()
+    } catch (e) {
+      console.error('Auth click error', e)
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível abrir a janela de autenticação.',
+      })
+    }
+  }, [isConfigured, error, isScriptLoaded, toast])
+
+  const logout = useCallback(() => {
     handleSignOut()
-    setIsAuthenticated(false)
-    setUser(null)
+    if (isMounted.current) {
+      setIsAuthenticated(false)
+      setUser(null)
+    }
     localStorage.removeItem('gdrive_connected')
     toast({
       title: 'Desconectado',
       description: 'Conta do Google Drive desconectada.',
     })
-  }
+  }, [toast])
 
   const listFiles = useCallback(
     async (folderId: string = 'root') => {
@@ -152,11 +185,11 @@ export function useGoogleDrive() {
       setIsLoading(true)
       try {
         const files = await listDriveFiles(folderId)
-        setIsLoading(false)
+        if (isMounted.current) setIsLoading(false)
         return files
       } catch (e) {
         console.error(e)
-        setIsLoading(false)
+        if (isMounted.current) setIsLoading(false)
         toast({
           variant: 'destructive',
           title: 'Erro ao listar arquivos',
@@ -197,7 +230,7 @@ export function useGoogleDrive() {
 
       toast({
         title: 'Sincronização Iniciada',
-        description: `Buscando arquivos em "${folderName}" e subpastas...`,
+        description: `Buscando arquivos em "${folderName}"...`,
       })
 
       let newCount = 0
@@ -205,19 +238,15 @@ export function useGoogleDrive() {
       let duplicates = 0
 
       try {
-        // 1. Fetch current local library to check for duplicates/updates
         const localTracks = await getAllTracks()
         const localMap = new Map(
           localTracks.filter((t) => t.gdriveId).map((t) => [t.gdriveId, t]),
         )
 
-        // 2. Scan Google Drive recursively
         const files = await scanFolderForAudio(folderId)
 
         for (const file of files) {
           const { composer, title } = parseMetadataFromFilename(file.name)
-
-          // Metadata Parsing
           const durationSec = file.durationMillis
             ? parseInt(file.durationMillis) / 1000
             : 0
@@ -233,13 +262,9 @@ export function useGoogleDrive() {
             ? new Date(file.modifiedTime).getTime()
             : 0
 
-          // 3. Conflict Resolution
           if (localMap.has(file.id)) {
             const existing = localMap.get(file.id)!
-
-            // Check if file on Drive is newer than our local metadata update
             if (modifiedTime > (existing.updatedAt || existing.addedAt)) {
-              // Update logic
               await saveTrack({
                 ...existing,
                 title,
@@ -247,28 +272,24 @@ export function useGoogleDrive() {
                 duration: durationStr,
                 size: fileSize,
                 updatedAt: Date.now(),
-                // Keep user preferences like ritual/degree
               })
               updatedCount++
             } else {
-              // Exact match or older, skip
               duplicates++
             }
           } else {
-            // New File
             await saveTrack({
               id: `gdrive-${file.id}`,
               gdriveId: file.id,
               title,
-              composer, // Parsed from filename
+              composer,
               duration: durationStr,
               addedAt: Date.now(),
               updatedAt: Date.now(),
               size: fileSize,
-              folderId: undefined,
               degree: 'Geral',
               ritual: 'Geral',
-              genre: 'Google Drive', // Fallback genre
+              genre: 'Google Drive',
             })
             newCount++
           }
@@ -276,26 +297,25 @@ export function useGoogleDrive() {
 
         await refreshLibrary()
 
-        let description = `${newCount} novos arquivos importados.`
+        let description = `${newCount} importados.`
         if (updatedCount > 0) description += ` ${updatedCount} atualizados.`
-        if (duplicates > 0)
-          description += ` ${duplicates} já existentes ignorados.`
 
         toast({
           title: 'Sincronização Concluída',
           description,
-          variant: newCount > 0 || updatedCount > 0 ? 'default' : 'default',
         })
       } catch (e) {
         console.error(e)
         toast({
           variant: 'destructive',
           title: 'Erro na Sincronização',
-          description: 'Falha ao processar arquivos. Tente novamente.',
+          description: 'Falha ao processar arquivos.',
         })
       } finally {
-        setIsLoading(false)
-        setIsSyncing(false)
+        if (isMounted.current) {
+          setIsLoading(false)
+          setIsSyncing(false)
+        }
       }
     },
     [refreshLibrary, toast, setIsSyncing, error, isConfigured],

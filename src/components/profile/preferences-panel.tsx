@@ -23,9 +23,7 @@ export function PreferencesPanel() {
         <CardTitle className="flex items-center gap-2 text-primary">
           <Settings2 className="w-5 h-5" /> Configurações Gerais
         </CardTitle>
-        <CardDescription>
-          Personalize sua experiência no Harmonize.
-        </CardDescription>
+        <CardDescription>Personalize sua experiência.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         {/* Theme Settings */}
@@ -40,7 +38,7 @@ export function PreferencesPanel() {
               className={cn(
                 'flex flex-col h-24 gap-2 border-2 transition-all',
                 theme === 'light'
-                  ? 'border-primary shadow-glow-sm'
+                  ? 'border-primary shadow-glow-sm bg-primary/20 text-foreground'
                   : 'border-border hover:border-primary/50',
               )}
               onClick={() => setTheme('light')}
@@ -54,7 +52,7 @@ export function PreferencesPanel() {
               className={cn(
                 'flex flex-col h-24 gap-2 border-2 transition-all',
                 theme === 'dark'
-                  ? 'border-primary shadow-glow-sm'
+                  ? 'border-primary shadow-glow-sm bg-primary/20 text-foreground'
                   : 'border-border hover:border-primary/50',
               )}
               onClick={() => setTheme('dark')}
@@ -68,7 +66,7 @@ export function PreferencesPanel() {
               className={cn(
                 'flex flex-col h-24 gap-2 border-2 transition-all',
                 theme === 'system'
-                  ? 'border-primary shadow-glow-sm'
+                  ? 'border-primary shadow-glow-sm bg-primary/20 text-foreground'
                   : 'border-border hover:border-primary/50',
               )}
               onClick={() => setTheme('system')}
@@ -88,7 +86,7 @@ export function PreferencesPanel() {
           <div className="space-y-4 bg-secondary/10 p-5 rounded-xl border border-white/5">
             <div className="flex justify-between items-center">
               <Label htmlFor="fade-duration" className="font-medium">
-                Duração da Transição (Fade)
+                Crossfade (Transição)
               </Label>
               <span className="text-sm font-mono text-primary font-bold bg-primary/10 px-2 py-1 rounded border border-primary/20">
                 {crossfadeDuration}s
@@ -103,9 +101,6 @@ export function PreferencesPanel() {
               onValueChange={(v) => setCrossfadeDuration(v[0])}
               className="w-full py-2"
             />
-            <p className="text-xs text-muted-foreground">
-              Tempo de mixagem automática entre faixas na playlist.
-            </p>
           </div>
         </div>
       </CardContent>

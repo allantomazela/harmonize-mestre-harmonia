@@ -45,7 +45,7 @@ export default function Profile() {
         {/* Appearance & Settings */}
         <PreferencesPanel />
 
-        {/* Cloud & Integrations */}
+        {/* Cloud Integration */}
         <IntegrationsStatus />
       </div>
 
