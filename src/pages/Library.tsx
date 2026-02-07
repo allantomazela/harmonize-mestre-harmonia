@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,9 @@ import {
   HardDrive,
   Usb,
   UploadCloud,
+  X,
+  Clock,
+  CheckSquare,
 } from 'lucide-react'
 import { useAudioPlayer, Track } from '@/hooks/use-audio-player-context'
 import { deleteTrack } from '@/lib/storage'
@@ -37,7 +41,6 @@ import {
 } from '@/components/library/import-music-dialog'
 import { TrackRow } from '@/components/track-row'
 import { cn } from '@/lib/utils'
-import { Link } from 'react-router-dom'
 
 export default function Library() {
   const {
@@ -106,10 +109,34 @@ export default function Library() {
     )
   })
 
+  // Selection Logic
   const toggleSelection = (id: string) => {
     setSelectedItems((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     )
+  }
+
+  const isAllSelected =
+    libraryTracks.length > 0 &&
+    libraryTracks.every((t) => selectedItems.includes(t.id))
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      // Deselect all visible
+      const visibleIds = libraryTracks.map((t) => t.id)
+      setSelectedItems((prev) => prev.filter((id) => !visibleIds.includes(id)))
+    } else {
+      // Select all visible
+      const visibleIds = libraryTracks.map((t) => t.id)
+      setSelectedItems((prev) => {
+        const newSet = new Set([...prev, ...visibleIds])
+        return Array.from(newSet)
+      })
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedItems([])
   }
 
   const handleDelete = async (id: string) => {
@@ -160,7 +187,7 @@ export default function Library() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] md:flex-row gap-6 p-4 max-w-[1600px] mx-auto animate-fade-in overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-6rem)] md:flex-row gap-6 p-4 max-w-[1600px] mx-auto animate-fade-in overflow-hidden relative">
       <FolderSidebar
         folders={folders}
         currentFolderId={currentFolderId}
@@ -172,8 +199,9 @@ export default function Library() {
         onFilterChange={setFilters}
       />
 
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-background/95 p-1 backdrop-blur pb-4 border-b border-border">
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden relative">
+        {/* Top Header & Controls */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-background/95 p-1 backdrop-blur pb-4 border-b border-border z-10">
           <div>
             <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
               {currentFolderId
@@ -294,50 +322,35 @@ export default function Library() {
           </div>
         </div>
 
-        {selectedItems.length > 0 && (
-          <div className="bg-primary/10 border border-primary/20 p-2 rounded-md flex items-center justify-between animate-fade-in-down">
-            <span className="text-sm font-medium ml-2 text-primary">
-              {selectedItems.length} selecionados
-            </span>
-            <div className="flex gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost">
-                    <Folder className="w-4 h-4 mr-2" /> Mover para...
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    onClick={() => handleMoveToFolder(undefined)}
-                  >
-                    Raiz (Sem Pasta)
-                  </DropdownMenuItem>
-                  {folders.map((f) => (
-                    <DropdownMenuItem
-                      key={f.id}
-                      onClick={() => handleMoveToFolder(f.id)}
-                    >
-                      {f.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleBulkDelete}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash className="w-4 h-4 mr-2" /> Excluir
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto">
+        {/* Tracks Area */}
+        <div className="flex-1 overflow-y-auto pb-20">
           {viewMode === 'list' ? (
             <div className="rounded-xl border border-white/5 bg-white/5 overflow-hidden">
+              {/* List Header */}
+              {libraryTracks.length > 0 && (
+                <div className="flex items-center gap-3 p-2 px-3 border-b border-white/10 bg-black/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+                  <div className="w-8 flex justify-center flex-shrink-0">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      className="border-white/20 data-[state=checked]:bg-primary data-[state=checked]:text-black"
+                    />
+                  </div>
+                  <div className="w-8 md:w-10 text-center">#</div>
+                  <div className="w-10 md:w-12"></div>
+                  {/* Cover Spacer */}
+                  <div className="flex-1">Título</div>
+                  <div className="hidden md:block flex-1">Album / Gênero</div>
+                  <div className="w-10 text-center">
+                    <CloudDownload className="w-3 h-3 mx-auto" />
+                  </div>
+                  <div className="w-12 text-right hidden sm:block">
+                    <Clock className="w-3 h-3 ml-auto" />
+                  </div>
+                  <div className="w-8"></div>
+                </div>
+              )}
+
               <div className="p-2 space-y-1">
                 {libraryTracks.length > 0 ? (
                   libraryTracks.map((track, idx) => (
@@ -380,12 +393,41 @@ export default function Library() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
+              {/* Grid View Multi-select Hint */}
+              {selectedItems.length > 0 && (
+                <div className="col-span-full mb-2 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSelectAll}
+                    className="gap-2"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    {isAllSelected
+                      ? 'Desmarcar Todos'
+                      : 'Selecionar Todos Visíveis'}
+                  </Button>
+                </div>
+              )}
+
               {libraryTracks.map((track, idx) => (
                 <div
                   key={track.id}
-                  className="group relative flex flex-col gap-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
+                  className={cn(
+                    'group relative flex flex-col gap-2 p-3 rounded-xl transition-all border cursor-pointer',
+                    selectedItems.includes(track.id)
+                      ? 'bg-primary/10 border-primary/40 shadow-[0_0_15px_rgba(191,255,0,0.1)]'
+                      : 'bg-white/5 hover:bg-white/10 border-transparent hover:border-white/10',
+                  )}
+                  onClick={() => toggleSelection(track.id)}
                 >
+                  <div className="absolute top-3 left-3 z-20">
+                    <Checkbox
+                      checked={selectedItems.includes(track.id)}
+                      className="border-white/50 data-[state=checked]:bg-primary data-[state=checked]:text-black shadow-sm"
+                    />
+                  </div>
                   <div className="aspect-square rounded-lg bg-black/40 overflow-hidden relative shadow-lg">
                     {track.cover ? (
                       <img
@@ -402,7 +444,10 @@ export default function Library() {
                       <Button
                         size="icon"
                         className="rounded-full h-12 w-12 bg-primary text-black hover:bg-white"
-                        onClick={() => handlePlayContext(idx)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePlayContext(idx)
+                        }}
                       >
                         <Play className="w-5 h-5 ml-1" />
                       </Button>
@@ -414,7 +459,14 @@ export default function Library() {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm truncate text-white">
+                    <h3
+                      className={cn(
+                        'font-bold text-sm truncate',
+                        selectedItems.includes(track.id)
+                          ? 'text-primary'
+                          : 'text-white',
+                      )}
+                    >
                       {track.title}
                     </h3>
                     <p className="text-xs text-muted-foreground truncate">
@@ -426,7 +478,71 @@ export default function Library() {
             </div>
           )}
         </div>
+
+        {/* Contextual Toolbar - Floating Bottom */}
+        {selectedItems.length > 0 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up w-full max-w-2xl px-4">
+            <div className="bg-background/80 backdrop-blur-xl border border-primary/30 p-3 rounded-full shadow-[0_0_30px_rgba(191,255,0,0.15)] flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 pl-2">
+                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-black font-bold text-sm">
+                  {selectedItems.length}
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  Selecionados
+                </span>
+                <div className="h-4 w-px bg-white/10 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  className="text-muted-foreground hover:text-white h-8 text-xs gap-1"
+                >
+                  <X className="w-3 h-3" /> Cancelar
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2 pr-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full h-9 border-primary/20 hover:border-primary/50"
+                    >
+                      <Folder className="w-4 h-4 mr-2 text-primary" /> Mover
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" side="top">
+                    <DropdownMenuItem
+                      onClick={() => handleMoveToFolder(undefined)}
+                    >
+                      Raiz (Sem Pasta)
+                    </DropdownMenuItem>
+                    {folders.map((f) => (
+                      <DropdownMenuItem
+                        key={f.id}
+                        onClick={() => handleMoveToFolder(f.id)}
+                      >
+                        {f.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  className="rounded-full h-9 shadow-none hover:bg-destructive/90"
+                >
+                  <Trash className="w-4 h-4 mr-2" /> Excluir
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
       <EditTrackDialog
         track={trackToEdit}
         isOpen={!!trackToEdit}

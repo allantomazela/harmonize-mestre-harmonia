@@ -128,15 +128,23 @@ export function TrackRow({
   return (
     <div
       className={cn(
-        'group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all border border-transparent',
-        isSelected && 'bg-primary/5 border-primary/20',
+        'group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all border',
+        isSelected
+          ? 'bg-primary/10 border-primary/30 shadow-[0_0_15px_rgba(191,255,0,0.05)]'
+          : 'border-transparent',
         isCurrent &&
+          !isSelected &&
           'bg-gradient-to-r from-primary/10 to-transparent border-primary/20',
       )}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onClick={(e) => {
+        // Allow clicking row to toggle selection if in selection mode, or play?
+        // Default behavior: Click on Play button to play. Click on checkbox to select.
+        // We can allow clicking empty space to select if we want, but let's stick to explicit controls to avoid confusion.
+      }}
     >
       {/* Drag Handle */}
       {draggable && (
@@ -145,48 +153,55 @@ export function TrackRow({
         </div>
       )}
 
-      {/* Select / Index / Play */}
-      <div className="flex items-center justify-center w-8 md:w-10 flex-shrink-0">
-        {showSelect ? (
-          <Checkbox checked={isSelected} onCheckedChange={() => onSelect?.()} />
-        ) : (
-          <div className="relative flex items-center justify-center w-full h-8">
-            <span
-              className={cn(
-                'text-sm font-medium text-muted-foreground group-hover:hidden',
-                isCurrent && 'text-primary font-bold',
-              )}
-            >
-              {isCurrent && isPlaying ? (
-                <BarChart2 className="w-4 h-4 animate-pulse" />
-              ) : (
-                (index ?? 0) + 1
-              )}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                'absolute hidden group-hover:flex h-8 w-8 rounded-full hover:bg-primary hover:text-black transition-colors',
-                isCurrent && 'flex text-primary hover:text-black',
-              )}
-              onClick={(e) => {
-                e.stopPropagation()
-                onPlay?.()
-              }}
-            >
-              {isCurrent && isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
-              )}
-            </Button>
-          </div>
-        )}
+      {/* Checkbox Column */}
+      {showSelect && (
+        <div className="flex items-center justify-center w-8 flex-shrink-0">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onSelect?.()}
+            className="border-white/30 data-[state=checked]:bg-primary data-[state=checked]:text-black transition-all"
+          />
+        </div>
+      )}
+
+      {/* Index / Play */}
+      <div className="flex items-center justify-center w-8 md:w-10 flex-shrink-0 text-center">
+        <div className="relative flex items-center justify-center w-full h-8">
+          <span
+            className={cn(
+              'text-sm font-medium text-muted-foreground group-hover:hidden',
+              isCurrent && 'text-primary font-bold',
+            )}
+          >
+            {isCurrent && isPlaying ? (
+              <BarChart2 className="w-4 h-4 animate-pulse" />
+            ) : (
+              (index ?? 0) + 1
+            )}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'absolute hidden group-hover:flex h-8 w-8 rounded-full hover:bg-primary hover:text-black transition-colors',
+              isCurrent && 'flex text-primary hover:text-black',
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onPlay?.()
+            }}
+          >
+            {isCurrent && isPlaying ? (
+              <Pause className="w-4 h-4 fill-current" />
+            ) : (
+              <Play className="w-4 h-4 fill-current ml-0.5" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Cover Art */}
-      <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-secondary flex-shrink-0 overflow-hidden relative border border-white/10 shadow-sm">
+      <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-secondary flex-shrink-0 overflow-hidden relative border border-white/10 shadow-sm group-hover:shadow-md transition-all">
         {track.cover ? (
           <img
             src={track.cover}
